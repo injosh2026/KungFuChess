@@ -8,8 +8,11 @@ def parse_board(lines):
         board.append(lines[i].split())
         i += 1
 
-    validate_board(board)
+    valid = validate_board(board)
 
+    if not valid:
+        return None, None
+        
     return board, i
     
 
