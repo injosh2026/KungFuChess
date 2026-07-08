@@ -36,3 +36,15 @@ def is_valid_move(board,  piece, start, end):
     
     return False
 
+def get_route_type(start, end):
+    row_diff = abs(end[0] - start[0])
+    col_diff = abs(end[1] - start[1])
+
+    if row_diff == 0:
+        return "horizontal"
+
+    if col_diff == 0:
+        return "vertical"
+
+    return "diagonal"
+    
