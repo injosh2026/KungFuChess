@@ -3,67 +3,70 @@ from printer import print_board
 from movement import handle_click
 from game_clock import handle_wait
 from game_state import GameState
+from game_session import create_session
 from jump import handle_jump
 
+
 def process_commands(lines, start_index, board):
-    selected = None
-    game_time = 0
-    pending_moves = []
-    pending_jumps = []
+    session = create_session(board)
     game_state = GameState()
-    
+
     for line in lines[start_index:]:
         command = line.split()
 
         if not command:
             continue
-            
+
         if command[0] == "click":
             x = int(command[1])
             y = int(command[2])
-                
+
             col = x // COORD_SCALE
             row = y // COORD_SCALE
-                
-            if 0 <= row < len(board) and 0 <= col < len(board[0]):
-                selected = handle_click(
-                    board,
+
+            if 0 <= row < len(session.board) and 0 <= col < len(session.board[0]):
+                game_state.game_over = session.game_over
+                session.selected = handle_click(
+                    session.board,
                     row,
                     col,
-                    selected,
-                    pending_moves,
-                    game_time,
-                    game_state
+                    session.selected,
+                    session.pending_moves,
+                    session.game_time,
+                    game_state,
                 )
-                
+
         elif command[0] == "wait":
             ms = int(command[1])
-            game_time = handle_wait(
+            game_state.game_over = session.game_over
+            session.game_time = handle_wait(
                 ms,
-                game_time,
-                board,
-                pending_moves,
-                pending_jumps,
-                game_state
+                session.game_time,
+                session.board,
+                session.pending_moves,
+                session.pending_jumps,
+                game_state,
             )
-            
+            session.game_over = game_state.game_over
+
         elif command[0] == "jump":
             x = int(command[1])
             y = int(command[2])
-            
+
             col = x // COORD_SCALE
             row = y // COORD_SCALE
-                
-            if 0 <= row < len(board) and 0 <= col < len(board[0]):
+
+            if 0 <= row < len(session.board) and 0 <= col < len(session.board[0]):
+                game_state.game_over = session.game_over
                 handle_jump(
-                board,
-                row,
-                col,
-                pending_jumps,
-                pending_moves,
-                game_time,
-                game_state
-            )
-            
+                    session.board,
+                    row,
+                    col,
+                    session.pending_jumps,
+                    session.pending_moves,
+                    session.game_time,
+                    game_state,
+                )
+
         elif command[0] == "print" and command[1] == "board":
-            print_board(board) 
+            print_board(session.board)
