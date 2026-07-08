@@ -1,11 +1,13 @@
 from printer import print_board
 from movement import handle_click
 from game_clock import handle_wait
+from game_state import GameState
 
 def process_commands(lines, start_index, board):
     selected = None
     game_time = 0
     pending_moves = []
+    game_state = GameState()
     
     for line in lines[start_index:]:
         command = line.split()
@@ -27,12 +29,13 @@ def process_commands(lines, start_index, board):
                     col,
                     selected,
                     pending_moves,
-                    game_time
+                    game_time,
+                    game_state
                 )
         
         elif command[0] == "wait":
             ms = int(command[1])
-            game_time = handle_wait(ms, game_time, board, pending_moves)
+            game_time = handle_wait(ms, game_time, board, pending_moves, game_state)
         
         elif command[0] == "print" and command[1] == "board":
             print_board(board) 

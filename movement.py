@@ -1,7 +1,10 @@
 from pieces import is_valid_move, get_route_type
 from game_clock import calculate_move_time
 
-def handle_click(board, row, col, selected, pending_moves, game_time):
+def handle_click(board, row, col, selected, pending_moves, game_time, game_state):
+    if game_state.game_over:
+        return selected
+    
     if selected is None:
         if board[row][col] != ".":
             if not is_piece_moving((row, col), pending_moves):
