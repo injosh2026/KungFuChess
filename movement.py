@@ -12,7 +12,6 @@ def handle_click(board, row, col, selected, pending_moves, game_time, game_state
     else:
         piece = board[selected[0]][selected[1]]
         target = board[row][col]
-        
         if target != ".":
             if same_color(piece, target):
                 selected = (row, col)
