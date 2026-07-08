@@ -3,7 +3,8 @@ from piece_moves import (
     rook_move,
     bishop_move,
     queen_move,
-    knight_move
+    knight_move,
+    pawn_move
 )
 
 def is_valid_move(board,  piece, start, end):
@@ -29,6 +30,9 @@ def is_valid_move(board,  piece, start, end):
         
     if piece_type == "N":
         return knight_move(row_diff, col_diff)
+    
+    if piece_type == "P":
+        return pawn_move(board, piece, start, end)
     
     return False
 
