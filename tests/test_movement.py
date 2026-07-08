@@ -1,7 +1,6 @@
 import pytest
 
-from game_state import GameState
-from helpers import make_board, make_move
+from helpers import make_board, make_move, make_session
 from movement import can_start_move, handle_click, is_piece_moving, same_color
 
 
@@ -63,108 +62,108 @@ def test_can_start_move_blocks_enemy_move_on_same_route(
 def test_handle_click_does_nothing_when_game_is_over():
     board = make_board(4, 4)
     board[0][0] = "wK"
-    game_state = GameState()
-    game_state.game_over = True
-    pending_moves = []
+    session = make_session(board, game_over=True)
 
-    result = handle_click(board, 0, 0, None, pending_moves, 0, game_state)
+    handle_click(session, 0, 0)
 
-    assert result is None
-    assert pending_moves == []
+    assert session.selected is None
+    assert session.pending_moves == []
 
 
 def test_handle_click_selects_piece_when_nothing_is_selected():
     board = make_board(4, 4)
     board[0][0] = "wK"
-    pending_moves = []
+    session = make_session(board)
 
-    result = handle_click(board, 0, 0, None, pending_moves, 0, GameState())
+    handle_click(session, 0, 0)
 
-    assert result == (0, 0)
-    assert pending_moves == []
+    assert session.selected == (0, 0)
+    assert session.pending_moves == []
 
 
 def test_handle_click_empty_square_without_selection_does_nothing():
     board = make_board(4, 4)
-    pending_moves = []
+    session = make_session(board)
 
-    result = handle_click(board, 0, 0, None, pending_moves, 0, GameState())
+    handle_click(session, 0, 0)
 
-    assert result is None
-    assert pending_moves == []
+    assert session.selected is None
+    assert session.pending_moves == []
 
 
 def test_handle_click_does_not_select_piece_that_is_already_moving():
     board = make_board(4, 4)
     board[0][0] = "wK"
     pending_moves = [make_move("wK", (0, 0), (0, 1))]
+    session = make_session(board, pending_moves=pending_moves)
 
-    result = handle_click(board, 0, 0, None, pending_moves, 0, GameState())
+    handle_click(session, 0, 0)
 
-    assert result is None
-    assert len(pending_moves) == 1
+    assert session.selected is None
+    assert len(session.pending_moves) == 1
 
 
 def test_handle_click_reselects_piece_of_same_color():
     board = make_board(4, 4)
     board[0][0] = "wK"
     board[0][2] = "wQ"
-    pending_moves = []
+    session = make_session(board, selected=(0, 0))
 
-    result = handle_click(board, 0, 2, (0, 0), pending_moves, 0, GameState())
+    handle_click(session, 0, 2)
 
-    assert result == (0, 2)
-    assert pending_moves == []
+    assert session.selected == (0, 2)
+    assert session.pending_moves == []
 
 
 def test_handle_click_valid_move_to_empty_adds_pending_move():
     board = make_board(4, 4)
     board[0][0] = "wK"
-    pending_moves = []
+    session = make_session(board, selected=(0, 0))
 
-    result = handle_click(board, 0, 1, (0, 0), pending_moves, 0, GameState())
+    handle_click(session, 0, 1)
 
-    assert result is None
-    assert len(pending_moves) == 1
-    assert pending_moves[0]["piece"] == "wK"
-    assert pending_moves[0]["start"] == (0, 0)
-    assert pending_moves[0]["end"] == (0, 1)
-    assert pending_moves[0]["arrival"] == 1000
+    assert session.selected is None
+    assert len(session.pending_moves) == 1
+    assert session.pending_moves[0]["piece"] == "wK"
+    assert session.pending_moves[0]["start"] == (0, 0)
+    assert session.pending_moves[0]["end"] == (0, 1)
+    assert session.pending_moves[0]["arrival"] == 1000
 
 
 def test_handle_click_valid_capture_adds_pending_move():
     board = make_board(4, 4)
     board[0][0] = "wK"
     board[0][1] = "bK"
-    pending_moves = []
+    session = make_session(board, game_time=500, selected=(0, 0))
 
-    result = handle_click(board, 0, 1, (0, 0), pending_moves, 500, GameState())
+    handle_click(session, 0, 1)
 
-    assert result is None
-    assert len(pending_moves) == 1
-    assert pending_moves[0]["piece"] == "wK"
-    assert pending_moves[0]["start"] == (0, 0)
-    assert pending_moves[0]["end"] == (0, 1)
-    assert pending_moves[0]["arrival"] == 1500
+    assert session.selected is None
+    assert len(session.pending_moves) == 1
+    assert session.pending_moves[0]["piece"] == "wK"
+    assert session.pending_moves[0]["start"] == (0, 0)
+    assert session.pending_moves[0]["end"] == (0, 1)
+    assert session.pending_moves[0]["arrival"] == 1500
 
 
 def test_handle_click_invalid_move_keeps_selection_and_pending_moves():
     board = make_board(4, 4)
     board[0][0] = "wK"
-    pending_moves = []
+    session = make_session(board, selected=(0, 0))
 
-    result = handle_click(board, 0, 2, (0, 0), pending_moves, 0, GameState())
+    handle_click(session, 0, 2)
 
-    assert result == (0, 0)
-    assert pending_moves == []
+    assert session.selected == (0, 0)
+    assert session.pending_moves == []
 
 
 def test_handle_click_does_not_add_move_when_route_is_blocked():
     board = make_board(4, 4)
     board[0][0] = "wR"
     pending_moves = [make_move("bR", (2, 0), (2, 3))]
+    session = make_session(board, selected=(0, 0), pending_moves=pending_moves)
 
-    result = handle_click(board, 0, 3, (0, 0), pending_moves, 0, GameState())
+    handle_click(session, 0, 3)
 
-    assert result == (0, 0)
-    assert len(pending_moves) == 1
+    assert session.selected == (0, 0)
+    assert len(session.pending_moves) == 1

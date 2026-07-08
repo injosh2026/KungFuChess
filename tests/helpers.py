@@ -1,8 +1,7 @@
-from game_state import GameState
+from game_session import create_session
 
 
-def make_board(rows, cols, fill="."):
-    return [[fill for _ in range(cols)] for _ in range(rows)]
+def make_board(rows, cols, fill="."):    return [[fill for _ in range(cols)] for _ in range(rows)]
 
 
 def make_move(piece, start, end, arrival=1000):
@@ -22,10 +21,20 @@ def make_jump(piece, position, end_time=1000):
     }
 
 
-def make_game_state(game_over=False):
-    game_state = GameState()
-    game_state.game_over = game_over
-    return game_state
+def make_session(    board,
+    game_time=0,
+    pending_moves=None,
+    pending_jumps=None,
+    selected=None,
+    game_over=False,
+):
+    session = create_session(board)
+    session.game_time = game_time
+    session.pending_moves = pending_moves if pending_moves is not None else []
+    session.pending_jumps = pending_jumps if pending_jumps is not None else []
+    session.selected = selected
+    session.game_over = game_over
+    return session
 
 
 def make_lines(board_rows, commands=None, header="Board:"):
