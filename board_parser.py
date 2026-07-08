@@ -1,10 +1,11 @@
+from constants import COMMANDS_MARKER
 from validator import is_valid_token
 
 def parse_board(lines):
     board = []
     i = 1
 
-    while lines[i] != "Commands:":
+    while lines[i] != COMMANDS_MARKER:
         board.append(lines[i].split())
         i += 1
 

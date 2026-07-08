@@ -1,6 +1,20 @@
 from pieces import is_valid_move, get_route_type
 from game_clock import calculate_move_time
 
+
+def _schedule_move(piece, start, end, pending_moves, game_time):
+    move = {
+        "piece": piece,
+        "start": start,
+        "end": end,
+        "arrival": game_time + calculate_move_time(start, end),
+    }
+    if can_start_move(piece, start, end, pending_moves):
+        pending_moves.append(move)
+        return None
+    return start
+
+
 def handle_click(board, row, col, selected, pending_moves, game_time, game_state):
     if game_state.game_over:
         return selected
@@ -12,30 +26,12 @@ def handle_click(board, row, col, selected, pending_moves, game_time, game_state
     else:
         piece = board[selected[0]][selected[1]]
         target = board[row][col]
-        if target != ".":
-            if same_color(piece, target):
-                selected = (row, col)
-            elif is_valid_move(board, piece, selected, (row, col)):
-                move = {
-                    "piece": piece,
-                    "start": selected,
-                    "end": (row, col),
-                    "arrival": game_time + calculate_move_time(selected, (row, col))
-                }
-                if can_start_move(piece, selected, (row, col), pending_moves):
-                    pending_moves.append(move)
-                    selected = None
-        else:
-            if is_valid_move(board, piece, selected, (row, col)):
-                move = {
-                    "piece": piece,
-                    "start": selected,
-                    "end": (row, col),
-                    "arrival": game_time + calculate_move_time(selected, (row, col))
-                }
-                if can_start_move(piece, selected, (row, col), pending_moves):
-                    pending_moves.append(move)
-                    selected = None
+        if target != "." and same_color(piece, target):
+            selected = (row, col)
+        elif is_valid_move(board, piece, selected, (row, col)):
+            selected = _schedule_move(
+                piece, selected, (row, col), pending_moves, game_time
+            )
                 
     return selected
 

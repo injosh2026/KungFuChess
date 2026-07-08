@@ -1,3 +1,6 @@
+from constants import MOVE_DURATION_MS
+
+
 def handle_wait(ms, game_time, board, pending_moves, pending_jumps, game_state):
     game_time += ms
     
@@ -8,7 +11,7 @@ def handle_wait(ms, game_time, board, pending_moves, pending_jumps, game_state):
  
     
 def calculate_move_time(start, end):
-    return 1000
+    return MOVE_DURATION_MS
  
     
 def complete_moves(board, pending_moves, pending_jumps, game_time, game_state):
