@@ -22,7 +22,7 @@ class PawnRule:
             piece.cell.col
         )
 
-        if board.is_inside(forward) and board.get_piece(forward) is None:
+        if board.is_inside(forward) and board.get_piece_by_position(forward) is None:
             destinations.add(forward)
 
         # diagonal captures
@@ -35,7 +35,7 @@ class PawnRule:
             if not board.is_inside(capture_position):
                 continue
 
-            target = board.get_piece(capture_position)
+            target = board.get_piece_by_position(capture_position)
 
             if target is not None and target.color != piece.color:
                 destinations.add(capture_position)

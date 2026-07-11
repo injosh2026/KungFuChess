@@ -1,3 +1,5 @@
+import pytest
+
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece import Piece
@@ -163,7 +165,7 @@ def test_rule_engine_does_not_move_piece():
     )
 
     assert rook.cell == Position(0,0)
-    assert board.get_piece(Position(0,5)) is None
+    assert board.get_piece_by_position(Position(0,5)) is None
 
 
 def test_can_move_to_enemy_piece():

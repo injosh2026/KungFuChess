@@ -15,9 +15,9 @@ def create_knight(position, color=Color.WHITE):
     )
 
 
-def create_piece(position, color):
+def create_piece(position, color, piece_id=2):
     return Piece(
-        id=2,
+        id=piece_id,
         color=color,
         kind=PieceKind.PAWN,
         cell=position
@@ -46,13 +46,15 @@ def test_knight_jumps_over_blockers():
     knight = create_knight(Position(3, 3))
 
     blocker1 = create_piece(
-        Position(2, 3),
-        Color.WHITE
+        Position(2,3),
+        Color.WHITE,
+        10
     )
 
     blocker2 = create_piece(
-        Position(3, 2),
-        Color.WHITE
+        Position(3,2),
+        Color.WHITE,
+        11
     )
 
     board.add_piece(knight)

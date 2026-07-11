@@ -22,7 +22,7 @@ class RuleEngine:
                 MoveReason.OUTSIDE_BOARD
             )
 
-        piece = board.get_piece(source)
+        piece = board.get_piece_by_position(source)
 
         if piece is None:
             return MoveValidation(
@@ -30,7 +30,7 @@ class RuleEngine:
                 MoveReason.EMPTY_SOURCE
             )
 
-        target = board.get_piece(destination)
+        target = board.get_piece_by_position(destination)
 
         if target is not None and target.color == piece.color:
             return MoveValidation(

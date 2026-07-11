@@ -8,7 +8,8 @@ from .piece import Piece
 class Board:
     width: int
     height: int
-    pieces: dict[Position, Piece] = field(default_factory=dict)
+    pieces_by_position: dict[Position, Piece] = field(default_factory=dict)
+    pieces_by_id: dict[int, Piece] = field(default_factory=dict)
 
     def is_inside(self, position: Position) -> bool:
         return (
@@ -21,16 +22,30 @@ class Board:
         if not self.is_inside(piece.cell):
             raise ValueError("Position outside board")
 
-        if piece.cell in self.pieces:
+        if piece.cell in self.pieces_by_position:
             raise ValueError("Cell already occupied")
 
-        self.pieces[piece.cell] = piece
+        if piece.id in self.pieces_by_id:
+            raise ValueError("Piece id already exists")
 
-    def get_piece(self, position: Position) -> Piece | None:
-        return self.pieces.get(position)
+        self.pieces_by_position[piece.cell] = piece
+        self.pieces_by_id[piece.id] = piece
+        
+
+    def get_piece_by_position(self, position: Position) -> Piece | None:
+        return self.pieces_by_position.get(position)
+
+
+    def get_piece_by_id(self, piece_id: int) -> Piece | None:
+        return self.pieces_by_id.get(piece_id)
 
     def remove_piece(self, position: Position) -> Piece | None:
-        return self.pieces.pop(position, None)
+        piece = self.pieces_by_position.pop(position, None)
+
+        if piece is not None:
+            self.pieces_by_id.pop(piece.id)
+
+        return piece
 
     def move_piece(
         self,
@@ -38,11 +53,11 @@ class Board:
         target: Position
     ) -> None:
 
-        if target in self.pieces:
+        if target in self.pieces_by_position:
             raise ValueError("Target cell occupied")
 
-        piece = self.pieces.pop(source)
+        piece = self.pieces_by_position.pop(source)
 
         piece.cell = target
 
-        self.pieces[target] = piece
+        self.pieces_by_position[target] = piece

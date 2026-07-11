@@ -20,7 +20,7 @@ class SlidingRule:
 
             while board.is_inside(Position(row, col)):
                 position = Position(row, col)
-                target = board.get_piece(position)
+                target = board.get_piece_by_position(position)
 
                 if target is None:
                     destinations.add(position)

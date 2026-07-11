@@ -7,9 +7,9 @@ from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 
 
-def create_piece(position):
+def create_piece(position, piece_id=1):
     return Piece(
-        id=1,
+        id=piece_id,
         color=Color.WHITE,
         kind=PieceKind.KING,
         cell=position
@@ -19,34 +19,45 @@ def create_piece(position):
 def test_empty_cell_returns_none():
     board = Board(8, 8)
 
-    assert board.get_piece(Position(0, 0)) is None
+    assert board.get_piece_by_position(Position(0, 0)) is None
 
 
 def test_add_and_get_piece():
     board = Board(8, 8)
+
     piece = create_piece(Position(0, 0))
 
     board.add_piece(piece)
 
-    assert board.get_piece(Position(0, 0)) == piece
+    assert board.get_piece_by_position(Position(0, 0)) == piece
 
 
 def test_cannot_add_two_pieces_same_cell():
     board = Board(8, 8)
 
-    board.add_piece(create_piece(Position(0, 0)))
+    board.add_piece(create_piece(Position(0, 0), 1))
 
-    another = create_piece(Position(0, 0))
+    another = create_piece(Position(0, 0), 2)
 
-    try:
+    with pytest.raises(ValueError):
         board.add_piece(another)
-        assert False
-    except ValueError:
-        assert True
+
+
+def test_cannot_add_two_pieces_same_id():
+    board = Board(8, 8)
+
+    first = create_piece(Position(0, 0), 1)
+    second = create_piece(Position(0, 1), 1)
+
+    board.add_piece(first)
+
+    with pytest.raises(ValueError):
+        board.add_piece(second)
 
 
 def test_move_piece_updates_position():
     board = Board(8, 8)
+
     piece = create_piece(Position(0, 0))
 
     board.add_piece(piece)
@@ -56,13 +67,29 @@ def test_move_piece_updates_position():
         Position(0, 1)
     )
 
-    assert board.get_piece(Position(0, 0)) is None
-    assert board.get_piece(Position(0, 1)) == piece
+    assert board.get_piece_by_position(Position(0, 0)) is None
+    assert board.get_piece_by_position(Position(0, 1)) == piece
     assert piece.cell == Position(0, 1)
+
+
+def test_move_piece_keeps_id_lookup():
+    board = Board(8, 8)
+
+    piece = create_piece(Position(0, 0), 10)
+
+    board.add_piece(piece)
+
+    board.move_piece(
+        Position(0, 0),
+        Position(0, 1)
+    )
+
+    assert board.get_piece_by_id(10) == piece
 
 
 def test_remove_piece():
     board = Board(8, 8)
+
     piece = create_piece(Position(0, 0))
 
     board.add_piece(piece)
@@ -70,7 +97,19 @@ def test_remove_piece():
     removed = board.remove_piece(Position(0, 0))
 
     assert removed == piece
-    assert board.get_piece(Position(0, 0)) is None
+    assert board.get_piece_by_position(Position(0, 0)) is None
+
+
+def test_remove_piece_removes_id_reference():
+    board = Board(8, 8)
+
+    piece = create_piece(Position(0, 0), 5)
+
+    board.add_piece(piece)
+
+    board.remove_piece(Position(0, 0))
+
+    assert board.get_piece_by_id(5) is None
 
 
 def test_cannot_add_piece_outside_board():
@@ -85,8 +124,8 @@ def test_cannot_add_piece_outside_board():
 def test_cannot_move_piece_to_occupied_cell():
     board = Board(8, 8)
 
-    first = create_piece(Position(0, 0))
-    second = create_piece(Position(0, 1))
+    first = create_piece(Position(0, 0), 1)
+    second = create_piece(Position(0, 1), 2)
 
     board.add_piece(first)
     board.add_piece(second)
@@ -96,3 +135,13 @@ def test_cannot_move_piece_to_occupied_cell():
             Position(0, 0),
             Position(0, 1)
         )
+
+
+def test_get_piece_by_id():
+    board = Board(8, 8)
+
+    piece = create_piece(Position(0, 0), 20)
+
+    board.add_piece(piece)
+
+    assert board.get_piece_by_id(20) == piece
