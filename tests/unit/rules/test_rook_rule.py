@@ -9,21 +9,11 @@ from kungfu_chess.rules.rook_rule import RookRule
 
 
 def create_rook(position, color=Color.WHITE):
-    return Piece(
-        id=1,
-        color=color,
-        kind=PieceKind.ROOK,
-        cell=position
-    )
+    return Piece(id=1, color=color, kind=PieceKind.ROOK, cell=position)
 
 
 def create_piece(position, color):
-    return Piece(
-        id=2,
-        color=color,
-        kind=PieceKind.PAWN,
-        cell=position
-    )
+    return Piece(id=2, color=color, kind=PieceKind.PAWN, cell=position)
 
 
 def test_rook_moves_horizontally_on_empty_row():
@@ -58,10 +48,7 @@ def test_rook_stops_before_friendly_piece():
     board = Board(8, 8)
 
     rook = create_rook(Position(3, 3))
-    friendly_piece = create_piece(
-        Position(3, 5),
-        Color.WHITE
-    )
+    friendly_piece = create_piece(Position(3, 5), Color.WHITE)
 
     board.add_piece(rook)
     board.add_piece(friendly_piece)
@@ -79,10 +66,7 @@ def test_rook_can_capture_enemy_piece_but_not_pass_through():
     board = Board(8, 8)
 
     rook = create_rook(Position(3, 3))
-    enemy_piece = create_piece(
-        Position(3, 5),
-        Color.BLACK
-    )
+    enemy_piece = create_piece(Position(3, 5), Color.BLACK)
 
     board.add_piece(rook)
     board.add_piece(enemy_piece)

@@ -7,9 +7,7 @@ class SlidingRule:
 
     @staticmethod
     def calculate_destinations(
-        board: Board,
-        piece: Piece,
-        directions: tuple[tuple[int, int], ...]
+        board: Board, piece: Piece, directions: tuple[tuple[int, int], ...]
     ) -> set[Position]:
 
         destinations = set()

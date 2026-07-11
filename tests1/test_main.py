@@ -7,7 +7,9 @@ from main import main
 
 @patch("main.process_commands")
 @patch("main.parse_board", return_value=(None, None))
-def test_main_returns_early_when_board_is_invalid(mock_parse_board, mock_process_commands):
+def test_main_returns_early_when_board_is_invalid(
+    mock_parse_board, mock_process_commands
+):
     with patch("sys.stdin", io.StringIO("Board:\nwK .\nCommands:\n")):
         main()
 

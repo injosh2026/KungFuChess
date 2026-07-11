@@ -16,18 +16,13 @@ class KingRule:
         (1, 1),
     )
 
-    def legal_destinations(
-        self,
-        board: Board,
-        piece: Piece
-    ) -> set[Position]:
+    def legal_destinations(self, board: Board, piece: Piece) -> set[Position]:
 
         destinations = set()
 
         for row_offset, col_offset in self.OFFSETS:
             position = Position(
-                piece.cell.row + row_offset,
-                piece.cell.col + col_offset
+                piece.cell.row + row_offset, piece.cell.col + col_offset
             )
 
             if not board.is_inside(position):

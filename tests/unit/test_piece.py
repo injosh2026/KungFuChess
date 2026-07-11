@@ -6,12 +6,7 @@ from kungfu_chess.model.piece_state import PieceState
 
 
 def test_piece_creation():
-    piece = Piece(
-        id=1,
-        color=Color.WHITE,
-        kind=PieceKind.KING,
-        cell=Position(0, 4)
-    )
+    piece = Piece(id=1, color=Color.WHITE, kind=PieceKind.KING, cell=Position(0, 4))
 
     assert piece.id == 1
     assert piece.color == Color.WHITE
@@ -21,12 +16,7 @@ def test_piece_creation():
 
 
 def test_piece_state_can_change():
-    piece = Piece(
-        id=1,
-        color=Color.BLACK,
-        kind=PieceKind.PAWN,
-        cell=Position(1, 0)
-    )
+    piece = Piece(id=1, color=Color.BLACK, kind=PieceKind.PAWN, cell=Position(1, 0))
 
     piece.state = PieceState.MOVING
 

@@ -34,11 +34,13 @@ def handle_click(session, row, col):
 def same_color(piece1, piece2):
     return piece1[0] == piece2[0]
 
+
 def is_piece_moving(position, pending_moves):
     for move in pending_moves:
         if move["start"] == position:
             return True
     return False
+
 
 def can_start_move(piece, start, end, pending_moves):
     route = get_route_type(start, end)

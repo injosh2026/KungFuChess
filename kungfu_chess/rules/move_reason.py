@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class MoveReason(Enum):
     OK = "ok"
     OUTSIDE_BOARD = "outside_board"

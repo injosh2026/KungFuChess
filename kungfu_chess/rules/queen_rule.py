@@ -13,7 +13,6 @@ class QueenRule:
         (1, 0),
         (0, -1),
         (0, 1),
-
         # Bishop directions
         (-1, -1),
         (-1, 1),
@@ -21,14 +20,6 @@ class QueenRule:
         (1, 1),
     )
 
-    def legal_destinations(
-        self,
-        board: Board,
-        piece: Piece
-    ) -> set[Position]:
+    def legal_destinations(self, board: Board, piece: Piece) -> set[Position]:
 
-        return SlidingRule.calculate_destinations(
-            board,
-            piece,
-            self.DIRECTIONS
-        )
+        return SlidingRule.calculate_destinations(board, piece, self.DIRECTIONS)

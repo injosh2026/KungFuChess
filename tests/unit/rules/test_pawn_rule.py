@@ -7,21 +7,11 @@ from kungfu_chess.rules.pawn_rule import PawnRule
 
 
 def create_pawn(position, color=Color.WHITE):
-    return Piece(
-        id=1,
-        color=color,
-        kind=PieceKind.PAWN,
-        cell=position
-    )
+    return Piece(id=1, color=color, kind=PieceKind.PAWN, cell=position)
 
 
 def create_piece(position, color):
-    return Piece(
-        id=2,
-        color=color,
-        kind=PieceKind.ROOK,
-        cell=position
-    )
+    return Piece(id=2, color=color, kind=PieceKind.ROOK, cell=position)
 
 
 def test_white_pawn_moves_forward():
@@ -55,10 +45,7 @@ def test_pawn_cannot_move_forward_into_piece():
 
     pawn = create_pawn(Position(4, 3), Color.WHITE)
 
-    blocker = create_piece(
-        Position(3, 3),
-        Color.BLACK
-    )
+    blocker = create_piece(Position(3, 3), Color.BLACK)
 
     board.add_piece(pawn)
     board.add_piece(blocker)
@@ -75,10 +62,7 @@ def test_white_pawn_can_capture_diagonally():
 
     pawn = create_pawn(Position(4, 3), Color.WHITE)
 
-    enemy = create_piece(
-        Position(3, 2),
-        Color.BLACK
-    )
+    enemy = create_piece(Position(3, 2), Color.BLACK)
 
     board.add_piece(pawn)
     board.add_piece(enemy)
@@ -95,10 +79,7 @@ def test_pawn_cannot_capture_friendly_piece():
 
     pawn = create_pawn(Position(4, 3), Color.WHITE)
 
-    friendly = create_piece(
-        Position(3, 2),
-        Color.WHITE
-    )
+    friendly = create_piece(Position(3, 2), Color.WHITE)
 
     board.add_piece(pawn)
     board.add_piece(friendly)

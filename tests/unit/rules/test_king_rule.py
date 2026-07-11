@@ -7,21 +7,11 @@ from kungfu_chess.rules.king_rule import KingRule
 
 
 def create_king(position, color=Color.WHITE):
-    return Piece(
-        id=1,
-        color=color,
-        kind=PieceKind.KING,
-        cell=position
-    )
+    return Piece(id=1, color=color, kind=PieceKind.KING, cell=position)
 
 
 def create_piece(position, color):
-    return Piece(
-        id=2,
-        color=color,
-        kind=PieceKind.PAWN,
-        cell=position
-    )
+    return Piece(id=2, color=color, kind=PieceKind.PAWN, cell=position)
 
 
 def test_king_moves_one_square_in_all_directions():
@@ -63,10 +53,7 @@ def test_king_cannot_capture_friendly_piece():
 
     king = create_king(Position(3, 3))
 
-    friendly = create_piece(
-        Position(2, 2),
-        Color.WHITE
-    )
+    friendly = create_piece(Position(2, 2), Color.WHITE)
 
     board.add_piece(king)
     board.add_piece(friendly)
@@ -83,10 +70,7 @@ def test_king_can_capture_enemy_piece():
 
     king = create_king(Position(3, 3))
 
-    enemy = create_piece(
-        Position(2, 2),
-        Color.BLACK
-    )
+    enemy = create_piece(Position(2, 2), Color.BLACK)
 
     board.add_piece(king)
     board.add_piece(enemy)

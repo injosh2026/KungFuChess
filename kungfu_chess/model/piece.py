@@ -5,6 +5,7 @@ from .piece_kind import PieceKind
 from .piece_state import PieceState
 from .position import Position
 
+
 @dataclass
 class Piece:
     id: int

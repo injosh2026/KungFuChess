@@ -8,12 +8,7 @@ from kungfu_chess.model.piece_kind import PieceKind
 
 
 def create_piece(position, piece_id=1):
-    return Piece(
-        id=piece_id,
-        color=Color.WHITE,
-        kind=PieceKind.KING,
-        cell=position
-    )
+    return Piece(id=piece_id, color=Color.WHITE, kind=PieceKind.KING, cell=position)
 
 
 def test_empty_cell_returns_none():
@@ -62,10 +57,7 @@ def test_move_piece_updates_position():
 
     board.add_piece(piece)
 
-    board.move_piece(
-        Position(0, 0),
-        Position(0, 1)
-    )
+    board.move_piece(Position(0, 0), Position(0, 1))
 
     assert board.get_piece_by_position(Position(0, 0)) is None
     assert board.get_piece_by_position(Position(0, 1)) == piece
@@ -79,10 +71,7 @@ def test_move_piece_keeps_id_lookup():
 
     board.add_piece(piece)
 
-    board.move_piece(
-        Position(0, 0),
-        Position(0, 1)
-    )
+    board.move_piece(Position(0, 0), Position(0, 1))
 
     assert board.get_piece_by_id(10) == piece
 
@@ -131,10 +120,7 @@ def test_cannot_move_piece_to_occupied_cell():
     board.add_piece(second)
 
     with pytest.raises(ValueError):
-        board.move_piece(
-            Position(0, 0),
-            Position(0, 1)
-        )
+        board.move_piece(Position(0, 0), Position(0, 1))
 
 
 def test_get_piece_by_id():

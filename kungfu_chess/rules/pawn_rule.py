@@ -6,21 +6,14 @@ from kungfu_chess.model.position import Position
 
 class PawnRule:
 
-    def legal_destinations(
-        self,
-        board: Board,
-        piece: Piece
-    ) -> set[Position]:
+    def legal_destinations(self, board: Board, piece: Piece) -> set[Position]:
 
         destinations = set()
 
         direction = self._direction(piece.color)
 
         # forward move
-        forward = Position(
-            piece.cell.row + direction,
-            piece.cell.col
-        )
+        forward = Position(piece.cell.row + direction, piece.cell.col)
 
         if board.is_inside(forward) and board.get_piece_by_position(forward) is None:
             destinations.add(forward)
@@ -28,8 +21,7 @@ class PawnRule:
         # diagonal captures
         for col_offset in (-1, 1):
             capture_position = Position(
-                piece.cell.row + direction,
-                piece.cell.col + col_offset
+                piece.cell.row + direction, piece.cell.col + col_offset
             )
 
             if not board.is_inside(capture_position):

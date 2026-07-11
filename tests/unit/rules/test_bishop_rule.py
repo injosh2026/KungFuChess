@@ -7,21 +7,11 @@ from kungfu_chess.rules.bishop_rule import BishopRule
 
 
 def create_bishop(position, color=Color.WHITE):
-    return Piece(
-        id=1,
-        color=color,
-        kind=PieceKind.BISHOP,
-        cell=position
-    )
+    return Piece(id=1, color=color, kind=PieceKind.BISHOP, cell=position)
 
 
 def create_piece(position, color):
-    return Piece(
-        id=2,
-        color=color,
-        kind=PieceKind.PAWN,
-        cell=position
-    )
+    return Piece(id=2, color=color, kind=PieceKind.PAWN, cell=position)
 
 
 def test_bishop_moves_diagonally_on_empty_board():
@@ -64,10 +54,7 @@ def test_bishop_stops_before_friendly_piece():
 
     bishop = create_bishop(Position(3, 3))
 
-    friendly = create_piece(
-        Position(1, 1),
-        Color.WHITE
-    )
+    friendly = create_piece(Position(1, 1), Color.WHITE)
 
     board.add_piece(bishop)
     board.add_piece(friendly)
@@ -86,10 +73,7 @@ def test_bishop_can_capture_enemy_but_not_pass_through():
 
     bishop = create_bishop(Position(3, 3))
 
-    enemy = create_piece(
-        Position(1, 1),
-        Color.BLACK
-    )
+    enemy = create_piece(Position(1, 1), Color.BLACK)
 
     board.add_piece(bishop)
     board.add_piece(enemy)

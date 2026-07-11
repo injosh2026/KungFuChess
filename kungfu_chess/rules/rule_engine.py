@@ -10,48 +10,27 @@ class RuleEngine:
         self._rules = rules
 
     def validate_move(
-        self,
-        board: Board,
-        source: Position,
-        destination: Position
+        self, board: Board, source: Position, destination: Position
     ) -> MoveValidation:
 
         if not board.is_inside(source) or not board.is_inside(destination):
-            return MoveValidation(
-                False,
-                MoveReason.OUTSIDE_BOARD
-            )
+            return MoveValidation(False, MoveReason.OUTSIDE_BOARD)
 
         piece = board.get_piece_by_position(source)
 
         if piece is None:
-            return MoveValidation(
-                False,
-                MoveReason.EMPTY_SOURCE
-            )
+            return MoveValidation(False, MoveReason.EMPTY_SOURCE)
 
         target = board.get_piece_by_position(destination)
 
         if target is not None and target.color == piece.color:
-            return MoveValidation(
-                False,
-                MoveReason.FRIENDLY_DESTINATION
-            )
+            return MoveValidation(False, MoveReason.FRIENDLY_DESTINATION)
 
         rule = self._rules[piece.kind]
 
-        destinations = rule.legal_destinations(
-            board,
-            piece
-        )
+        destinations = rule.legal_destinations(board, piece)
 
         if destination not in destinations:
-            return MoveValidation(
-                False,
-                MoveReason.ILLEGAL_PIECE_MOVE
-            )
+            return MoveValidation(False, MoveReason.ILLEGAL_PIECE_MOVE)
 
-        return MoveValidation(
-            True,
-            MoveReason.OK
-        )
+        return MoveValidation(True, MoveReason.OK)

@@ -3,6 +3,7 @@ import pytest
 from board_utils import is_path_clear
 from helpers import make_board
 
+
 def test_is_path_clear_horizontal_right():
     board = make_board(4, 4)
     assert is_path_clear(board, (0, 0), (0, 3)) is True

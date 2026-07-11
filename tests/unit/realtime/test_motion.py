@@ -4,10 +4,7 @@ from kungfu_chess.realtime.motion import Motion
 
 def create_motion():
     return Motion(
-        piece_id=1,
-        start=Position(0, 0),
-        target=Position(0, 5),
-        duration_ms=1000
+        piece_id=1, start=Position(0, 0), target=Position(0, 5), duration_ms=1000
     )
 
 

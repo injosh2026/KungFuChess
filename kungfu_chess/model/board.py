@@ -12,11 +12,7 @@ class Board:
     pieces_by_id: dict[int, Piece] = field(default_factory=dict)
 
     def is_inside(self, position: Position) -> bool:
-        return (
-            0 <= position.row < self.height
-            and
-            0 <= position.col < self.width
-        )
+        return 0 <= position.row < self.height and 0 <= position.col < self.width
 
     def add_piece(self, piece: Piece) -> None:
         if not self.is_inside(piece.cell):
@@ -30,11 +26,9 @@ class Board:
 
         self.pieces_by_position[piece.cell] = piece
         self.pieces_by_id[piece.id] = piece
-        
 
     def get_piece_by_position(self, position: Position) -> Piece | None:
         return self.pieces_by_position.get(position)
-
 
     def get_piece_by_id(self, piece_id: int) -> Piece | None:
         return self.pieces_by_id.get(piece_id)
@@ -47,11 +41,7 @@ class Board:
 
         return piece
 
-    def move_piece(
-        self,
-        source: Position,
-        target: Position
-    ) -> None:
+    def move_piece(self, source: Position, target: Position) -> None:
 
         if target in self.pieces_by_position:
             raise ValueError("Target cell occupied")

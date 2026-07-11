@@ -1,6 +1,7 @@
 from constants import COMMANDS_MARKER
 from validator import is_valid_token
 
+
 def parse_board(lines):
     board = []
     i = 1
@@ -13,9 +14,9 @@ def parse_board(lines):
 
     if not valid:
         return None, None
-        
+
     return board, i
-    
+
 
 def validate_board(board):
     expected_width = len(board[0])

@@ -7,21 +7,11 @@ from kungfu_chess.rules.queen_rule import QueenRule
 
 
 def create_queen(position, color=Color.WHITE):
-    return Piece(
-        id=1,
-        color=color,
-        kind=PieceKind.QUEEN,
-        cell=position
-    )
+    return Piece(id=1, color=color, kind=PieceKind.QUEEN, cell=position)
 
 
 def create_piece(position, color):
-    return Piece(
-        id=2,
-        color=color,
-        kind=PieceKind.PAWN,
-        cell=position
-    )
+    return Piece(id=2, color=color, kind=PieceKind.PAWN, cell=position)
 
 
 def test_queen_moves_like_rook_and_bishop():
@@ -48,10 +38,7 @@ def test_queen_stops_before_friendly_piece():
 
     queen = create_queen(Position(3, 3))
 
-    friendly = create_piece(
-        Position(3, 5),
-        Color.WHITE
-    )
+    friendly = create_piece(Position(3, 5), Color.WHITE)
 
     board.add_piece(queen)
     board.add_piece(friendly)
@@ -70,10 +57,7 @@ def test_queen_can_capture_enemy_piece():
 
     queen = create_queen(Position(3, 3))
 
-    enemy = create_piece(
-        Position(3, 5),
-        Color.BLACK
-    )
+    enemy = create_piece(Position(3, 5), Color.BLACK)
 
     board.add_piece(queen)
     board.add_piece(enemy)

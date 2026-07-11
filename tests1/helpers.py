@@ -1,7 +1,8 @@
 from game_session import create_session
 
 
-def make_board(rows, cols, fill="."):    return [[fill for _ in range(cols)] for _ in range(rows)]
+def make_board(rows, cols, fill="."):
+    return [[fill for _ in range(cols)] for _ in range(rows)]
 
 
 def make_move(piece, start, end, arrival=1000):
@@ -21,7 +22,8 @@ def make_jump(piece, position, end_time=1000):
     }
 
 
-def make_session(    board,
+def make_session(
+    board,
     game_time=0,
     pending_moves=None,
     pending_jumps=None,
