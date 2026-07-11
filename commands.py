@@ -2,7 +2,7 @@ from constants import COORD_SCALE
 from printer import print_board
 from movement import handle_click
 from game_clock import handle_wait
-from kungfu_chess.model.game_session import create_session
+from game_session import create_session
 from jump import handle_jump
 
 
