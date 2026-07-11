@@ -1,4 +1,4 @@
-from game_session import create_session
+from kungfu_chess.model.game_session import create_session
 
 
 def make_board(rows, cols, fill="."):    return [[fill for _ in range(cols)] for _ in range(rows)]
