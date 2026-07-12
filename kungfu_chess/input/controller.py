@@ -4,7 +4,12 @@ class Controller:
         self.board = board
         self.board_mapper = board_mapper
         self.game_engine = game_engine
-        self.selected_position = None
+        self._selected_position = None
+
+
+    @property
+    def selected_position(self):
+        return self._selected_position
 
 
     def handle_click(self, x: int, y: int):
@@ -16,25 +21,25 @@ class Controller:
         )
 
         if position is None:
-            if self.selected_position is not None:
-                self.selected_position = None
+            if self._selected_position is not None:
+                self._selected_position = None
 
             return None
 
 
-        if self.selected_position is None:
+        if self._selected_position is None:
 
             piece = self.board.get_piece_by_position(position)
 
             if piece is None:
                 return None
 
-            self.selected_position = position
+            self._selected_position = position
             return None
 
 
-        source = self.selected_position
-        self.selected_position = None
+        source = self._selected_position
+        self._selected_position = None
 
         return self.game_engine.request_move(
             source,
