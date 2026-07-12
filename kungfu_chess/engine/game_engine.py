@@ -1,4 +1,5 @@
 from kungfu_chess.engine.arrival_resolver import ArrivalResolver
+from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.move_result import MoveResult
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.movement_duration import MovementDurationCalculator
@@ -11,6 +12,7 @@ class GameEngine:
         self.rule_engine = rule_engine
         self.realtime_arbiter = realtime_arbiter
         self.arrival_resolver = ArrivalResolver(game_state)
+        self.motion_factory = MotionFactory()
 
     def request_move(self, source, destination) -> MoveResult:
 
@@ -34,16 +36,10 @@ class GameEngine:
         if piece is None:
             raise RuntimeError("Validated move without source piece")
 
-        duration = MovementDurationCalculator.calculate(
+        motion = self.motion_factory.create(
+            piece,
             source,
             destination
-        )
-
-        motion = Motion(
-            piece_id=piece.id,
-            start=source,
-            target=destination,
-            duration_ms=duration
         )
 
         self.realtime_arbiter.start_motion(motion)
