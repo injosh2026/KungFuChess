@@ -151,3 +151,27 @@ def test_wait_moves_piece_when_motion_completes():
     assert state.board.get_piece_by_position(
         Position(0, 1)
     ) is not None
+
+
+def test_wait_resolves_completed_motion():
+
+    engine, state, _ = create_engine(
+        MoveValidation(True, "ok")
+    )
+
+    engine.request_move(
+        Position(0, 0),
+        Position(0, 1)
+    )
+
+    captured = engine.wait(1000)
+
+    assert captured is None
+
+    assert state.board.get_piece_by_position(
+        Position(0, 0)
+    ) is None
+
+    assert state.board.get_piece_by_position(
+        Position(0, 1)
+    ) is not None
