@@ -1,5 +1,5 @@
+from kungfu_chess.engine.arrival_resolver import ArrivalResolver
 from kungfu_chess.engine.move_result import MoveResult
-from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.movement_duration import MovementDurationCalculator
 
@@ -10,6 +10,7 @@ class GameEngine:
         self.game_state = game_state
         self.rule_engine = rule_engine
         self.realtime_arbiter = realtime_arbiter
+        self.arrival_resolver = ArrivalResolver(game_state)
 
     def request_move(self, source, destination) -> MoveResult:
 
@@ -50,21 +51,14 @@ class GameEngine:
         return MoveResult(True, "ok")
     
     def wait(self, milliseconds: int):
-        completed_motion = self.realtime_arbiter.advance_time(milliseconds)
+        completed_motions = self.realtime_arbiter.advance_time(milliseconds)
 
-        if completed_motion is not None:
-            return self.resolve_motion_arrival(completed_motion)
+        captured_pieces = []
 
-        return None
+        for motion in completed_motions:
+            captured = self.arrival_resolver.resolve(motion)
 
-    def resolve_motion_arrival(self, motion: Motion):
-        captured_piece = self.game_state.board.move_piece(
-            motion.start,
-            motion.target
-        )
+            if captured is not None:
+                captured_pieces.append(captured)
 
-        if captured_piece is not None:
-            if captured_piece.kind == PieceKind.KING:
-                self.game_state.game_over = True
-
-        return captured_piece
+        return captured_pieces

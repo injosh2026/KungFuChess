@@ -166,7 +166,7 @@ def test_wait_resolves_completed_motion():
 
     captured = engine.wait(1000)
 
-    assert captured is None
+    assert captured == []
 
     assert state.board.get_piece_by_position(
         Position(0, 0)
@@ -197,6 +197,7 @@ def test_capturing_king_ends_game():
         Position(0, 1)
     )
 
-    engine.wait(1000)
+    captured = engine.wait(1000)
 
+    assert captured == [king]
     assert state.game_over is True

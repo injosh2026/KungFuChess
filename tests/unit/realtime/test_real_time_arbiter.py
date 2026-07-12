@@ -1,4 +1,5 @@
 from kungfu_chess.model.position import Position
+from kungfu_chess.realtime import motion
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 
@@ -43,8 +44,9 @@ def test_advance_time_updates_active_motion():
 
     arbiter.start_motion(motion)
 
-    arbiter.advance_time(500)
+    completed = arbiter.advance_time(500)
 
+    assert completed == []
     assert motion.elapsed_ms == 500
 
 
@@ -55,8 +57,9 @@ def test_completed_motion_is_removed():
 
     arbiter.start_motion(motion)
 
-    arbiter.advance_time(1000)
+    completed = arbiter.advance_time(1000)
 
+    assert completed == [motion]
     assert arbiter.has_active_motion() is False
     assert arbiter.active_motion is None
 
@@ -65,6 +68,7 @@ def test_advance_time_without_motion_does_nothing():
 
     arbiter = RealTimeArbiter()
 
-    arbiter.advance_time(500)
+    completed = arbiter.advance_time(500)
 
+    assert completed == []
     assert arbiter.has_active_motion() is False

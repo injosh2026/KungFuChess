@@ -16,18 +16,18 @@ class RealTimeArbiter:
         self._active_motion = motion
         return True
 
-    def advance_time(self, milliseconds: int) -> Motion | None:
+    def advance_time(self, milliseconds: int) -> list[Motion]:
         if self._active_motion is None:
-            return None
+            return []
 
         self._active_motion.advance_time(milliseconds)
 
         if self._active_motion.is_completed:
             completed_motion = self._active_motion
             self._active_motion = None
-            return completed_motion
+            return [completed_motion]
 
-        return None
+        return []
 
     @property
     def active_motion(self) -> Motion | None:
