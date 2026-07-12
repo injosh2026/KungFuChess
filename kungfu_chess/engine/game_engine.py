@@ -1,4 +1,5 @@
 from kungfu_chess.engine.move_result import MoveResult
+from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.movement_duration import MovementDurationCalculator
 
@@ -57,7 +58,13 @@ class GameEngine:
         return None
 
     def resolve_motion_arrival(self, motion: Motion):
-        return self.game_state.board.move_piece(
+        captured_piece = self.game_state.board.move_piece(
             motion.start,
             motion.target
         )
+
+        if captured_piece is not None:
+            if captured_piece.kind == PieceKind.KING:
+                self.game_state.game_over = True
+
+        return captured_piece

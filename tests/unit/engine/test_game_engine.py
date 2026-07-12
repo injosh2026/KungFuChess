@@ -175,3 +175,28 @@ def test_wait_resolves_completed_motion():
     assert state.board.get_piece_by_position(
         Position(0, 1)
     ) is not None
+
+
+def test_capturing_king_ends_game():
+
+    engine, state, _ = create_engine(
+        MoveValidation(True, "ok")
+    )
+
+    king = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.KING,
+        cell=Position(0, 1)
+    )
+
+    state.board.add_piece(king)
+
+    engine.request_move(
+        Position(0, 0),
+        Position(0, 1)
+    )
+
+    engine.wait(1000)
+
+    assert state.game_over is True
