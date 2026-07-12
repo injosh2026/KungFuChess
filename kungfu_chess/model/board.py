@@ -41,13 +41,13 @@ class Board:
 
         return piece
 
-    def move_piece(self, source: Position, target: Position) -> None:
-
-        if target in self.pieces_by_position:
-            raise ValueError("Target cell occupied")
-
+    def move_piece(self, source: Position, target: Position) -> Piece | None:
         piece = self.pieces_by_position.pop(source)
+
+        captured_piece = self.remove_piece(target)
 
         piece.cell = target
 
         self.pieces_by_position[target] = piece
+
+        return captured_piece

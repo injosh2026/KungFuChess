@@ -47,3 +47,6 @@ class GameEngine:
         self.realtime_arbiter.start_motion(motion)
         
         return MoveResult(True, "ok")
+    
+    def wait(self, milliseconds: int) -> None:
+        self.realtime_arbiter.advance_time(milliseconds)

@@ -102,3 +102,30 @@ def test_cannot_start_move_when_motion_active():
     assert result.reason == "motion_in_progress"
 
     assert rule_engine.called is False
+
+
+def test_valid_move_without_source_piece_raises_error():
+
+    engine, state, _ = create_engine(MoveValidation(True, "ok"))
+
+    state.board.remove_piece(Position(0,0))
+
+    try:
+        engine.request_move(Position(0,0), Position(0,1))
+        assert False
+    except RuntimeError as e:
+        assert str(e) == "Validated move without source piece"
+
+
+def test_wait_advances_active_motion_time():
+
+    engine, _, _ = create_engine(MoveValidation(True, "ok"))
+
+    motion = create_motion()
+
+    engine.realtime_arbiter.start_motion(motion)
+
+    engine.wait(500)
+
+    assert engine.realtime_arbiter.active_motion is not None
+    assert engine.realtime_arbiter.active_motion.elapsed_ms == 500

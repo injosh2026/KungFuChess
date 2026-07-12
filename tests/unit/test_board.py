@@ -110,7 +110,8 @@ def test_cannot_add_piece_outside_board():
         board.add_piece(piece)
 
 
-def test_cannot_move_piece_to_occupied_cell():
+def test_move_piece_captures_piece_on_target_cell():
+
     board = Board(8, 8)
 
     first = create_piece(Position(0, 0), 1)
@@ -119,8 +120,19 @@ def test_cannot_move_piece_to_occupied_cell():
     board.add_piece(first)
     board.add_piece(second)
 
-    with pytest.raises(ValueError):
-        board.move_piece(Position(0, 0), Position(0, 1))
+    captured = board.move_piece(
+        Position(0, 0),
+        Position(0, 1)
+    )
+
+    assert captured is second
+
+    assert board.get_piece_by_position(Position(0, 0)) is None
+
+    assert board.get_piece_by_position(Position(0, 1)) is first
+
+    assert board.get_piece_by_id(1) is first
+    assert board.get_piece_by_id(2) is None
 
 
 def test_get_piece_by_id():
@@ -131,3 +143,70 @@ def test_get_piece_by_id():
     board.add_piece(piece)
 
     assert board.get_piece_by_id(20) == piece
+
+
+def test_move_piece_moves_piece_to_target():
+
+    board = Board(8, 8)
+
+    piece = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0)
+    )
+
+    board.add_piece(piece)
+
+    captured = board.move_piece(
+        Position(0, 0),
+        Position(0, 1)
+    )
+
+    assert captured is None
+
+    assert board.get_piece_by_position(Position(0, 0)) is None
+
+    moved_piece = board.get_piece_by_position(Position(0, 1))
+
+    assert moved_piece is piece
+    assert moved_piece.cell == Position(0, 1)
+
+    assert board.get_piece_by_id(1) is piece
+
+
+def test_move_piece_captures_target_piece():
+
+    board = Board(8, 8)
+
+    attacker = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0)
+    )
+
+    victim = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.PAWN,
+        cell=Position(0, 1)
+    )
+
+    board.add_piece(attacker)
+    board.add_piece(victim)
+
+    captured = board.move_piece(
+        Position(0, 0),
+        Position(0, 1)
+    )
+
+    assert captured is victim
+
+    assert board.get_piece_by_position(Position(0, 0)) is None
+
+    assert board.get_piece_by_position(Position(0, 1)) is attacker
+
+    assert board.get_piece_by_id(2) is None
+
+    assert board.get_piece_by_id(1) is attacker
