@@ -1,4 +1,4 @@
-from kungfu_chess.parser.board_parser import BoardParser
+from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.position import Position
