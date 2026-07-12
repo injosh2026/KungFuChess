@@ -129,3 +129,25 @@ def test_wait_advances_active_motion_time():
 
     assert engine.realtime_arbiter.active_motion is not None
     assert engine.realtime_arbiter.active_motion.elapsed_ms == 500
+
+
+def test_wait_moves_piece_when_motion_completes():
+
+    engine, state, _ = create_engine(
+        MoveValidation(True, "ok")
+    )
+
+    engine.request_move(
+        Position(0, 0),
+        Position(0, 1)
+    )
+
+    engine.wait(1000)
+
+    assert state.board.get_piece_by_position(
+        Position(0, 0)
+    ) is None
+
+    assert state.board.get_piece_by_position(
+        Position(0, 1)
+    ) is not None

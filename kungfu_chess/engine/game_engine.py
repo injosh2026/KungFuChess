@@ -49,4 +49,13 @@ class GameEngine:
         return MoveResult(True, "ok")
     
     def wait(self, milliseconds: int) -> None:
-        self.realtime_arbiter.advance_time(milliseconds)
+        completed_motion = self.realtime_arbiter.advance_time(milliseconds)
+
+        if completed_motion is not None:
+            self.resolve_motion_arrival(completed_motion)
+
+    def resolve_motion_arrival(self, motion: Motion) -> None:
+        self.game_state.board.move_piece(
+            motion.start,
+            motion.target
+        )
