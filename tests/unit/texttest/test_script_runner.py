@@ -1,6 +1,19 @@
+import pytest
+
 from kungfu_chess.texttests.script_runner import ScriptRunner
 from kungfu_chess.model.board import Board
 
+
+class FakeGameEngine:
+
+    def __init__(self):
+        self.wait_calls = []
+
+
+    def wait(self, milliseconds):
+        self.wait_calls.append(milliseconds)
+        return "done"
+    
 
 def test_load_board_creates_game():
 
@@ -36,9 +49,6 @@ def test_click_is_sent_to_controller():
     assert runner.controller.selected_position.col == 0
 
 
-import pytest
-
-
 def test_click_without_loaded_game_raises_error():
 
     runner = ScriptRunner()
@@ -49,17 +59,6 @@ def test_click_without_loaded_game_raises_error():
     ):
         runner.handle_click(50, 50)
 
-
-class FakeGameEngine:
-
-    def __init__(self):
-        self.wait_calls = []
-
-
-    def wait(self, milliseconds):
-        self.wait_calls.append(milliseconds)
-        return "done"
-    
 
 def test_wait_is_sent_to_game_engine():
 
@@ -113,3 +112,77 @@ def test_print_board_without_loaded_game_raises_error():
         match="Game is not initialized"
     ):
         runner.print_board()
+
+
+def test_run_ignores_empty_lines():
+
+    runner = ScriptRunner()
+
+    result = runner.run([
+        "",
+        "   ",
+        ""
+    ])
+
+    assert result == []
+
+
+def test_run_rejects_unknown_command():
+
+    runner = ScriptRunner()
+
+    with pytest.raises(
+        ValueError,
+        match="Unknown command: hello"
+    ):
+        runner.run([
+            "hello"
+        ])
+
+
+def test_run_prints_initial_board():
+
+    runner = ScriptRunner()
+
+    output = runner.run([
+        "Board",
+        "wK .",
+        ". bK",
+        "",
+        "print board",
+    ])
+
+    assert output == [
+        "wK .\n. bK"
+    ]
+
+
+def test_run_executes_click_command():
+
+    runner = ScriptRunner()
+
+    runner.run([
+        "Board",
+        "wR .",
+        ". .",
+        "",
+        "click 50 50",
+    ])
+
+    assert runner.controller.selected_position.row == 0
+    assert runner.controller.selected_position.col == 0
+
+
+def test_run_executes_wait_command():
+
+    runner = ScriptRunner()
+
+    runner.run([
+        "Board",
+        "wR .",
+        ". .",
+        "",
+        "wait 1000",
+    ])
+
+    assert runner.game_engine is not None

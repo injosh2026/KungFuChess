@@ -10,7 +10,6 @@ class ScriptRunner:
         self.game_engine = None
         self.board_printer = BoardPrinter()
 
-
     def load_board(self, lines):
 
         parser = BoardParser()
@@ -21,14 +20,12 @@ class ScriptRunner:
             self.board
         )
 
-
     def handle_click(self, x: int, y: int):
 
         if self.controller is None:
             raise RuntimeError("Game is not initialized")
 
         return self.controller.handle_click(x, y)
-    
 
     def wait(self, milliseconds: int):
 
@@ -36,10 +33,91 @@ class ScriptRunner:
             raise RuntimeError("Game is not initialized")
 
         return self.game_engine.wait(milliseconds)
-    
+
     def print_board(self):
 
         if self.board is None:
             raise RuntimeError("Game is not initialized")
 
         return self.board_printer.print_board(self.board)
+
+    def run(self, lines):
+
+        index = 0
+        output = []
+
+        while index < len(lines):
+
+            line = lines[index].strip()
+
+            if line == "":
+                index += 1
+                continue
+
+            if line == "Board":
+                index = self._load_board_from_script(
+                    lines,
+                    index + 1
+                )
+                continue
+
+            if line.startswith("click"):
+                _, x, y = line.split()
+
+                self.handle_click(
+                    int(x),
+                    int(y)
+                )
+
+                index += 1
+                continue
+
+            if line.startswith("wait"):
+                _, milliseconds = line.split()
+
+                self.wait(
+                    int(milliseconds)
+                )
+
+                index += 1
+                continue
+
+            if line == "print board":
+                output.append(
+                    self.print_board()
+                )
+
+                index += 1
+                continue
+
+            raise ValueError(
+                f"Unknown command: {line}"
+            )
+
+        return output
+    
+    def _load_board_from_script(self, lines, start_index):
+
+        board_lines = []
+
+        index = start_index
+
+        while index < len(lines):
+
+            line = lines[index].strip()
+
+            if (
+                line == ""
+                or line.startswith("click")
+                or line.startswith("wait")
+                or line == "print board"
+            ):
+                break
+
+            board_lines.append(line)
+
+            index += 1
+
+        self.load_board(board_lines)
+
+        return index
