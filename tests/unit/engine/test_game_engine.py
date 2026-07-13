@@ -21,6 +21,16 @@ class FakeRuleEngine:
         return self.validation
 
 
+class FakeArbiter:
+
+    def __init__(self):
+        self.called_with = None
+
+    def advance_time(self, milliseconds):
+        self.called_with = milliseconds
+        return []
+
+
 def create_engine(validation):
 
     board = Board(8, 8)
@@ -201,3 +211,22 @@ def test_capturing_king_ends_game():
 
     assert captured == [king]
     assert state.game_over is True
+
+
+def test_wait_delegates_to_real_time_arbiter():
+
+    board = Board(8, 8)
+
+    state = GameState(board)
+
+    arbiter = FakeArbiter()
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        arbiter
+    )
+
+    engine.wait(700)
+
+    assert arbiter.called_with == 700
