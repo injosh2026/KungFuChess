@@ -98,3 +98,30 @@ def test_script_capture_removes_enemy_piece():
     assert output == [
         ". . wR\n. . .\n. . ."
     ]
+
+
+def test_script_game_stops_after_king_capture():
+
+    runner = ScriptRunner()
+
+    output = runner.run([
+        "Board",
+        "wR . bK",
+        ". . .",
+        ". . .",
+        "",
+        "click 50 50",
+        "click 250 50",
+        "wait 2000",
+
+        # ניסיון לבצע עוד מהלך לאחר סיום המשחק
+        "click 250 50",
+        "click 250 250",
+        "wait 2000",
+
+        "print board",
+    ])
+
+    assert output == [
+        ". . wR\n. . .\n. . ."
+    ]
