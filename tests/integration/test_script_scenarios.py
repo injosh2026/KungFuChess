@@ -36,3 +36,23 @@ def test_script_moves_rook_after_wait():
     assert output == [
         ". wR\n. ."
     ]
+
+
+def test_script_illegal_move_keeps_board_unchanged():
+
+    runner = ScriptRunner()
+
+    output = runner.run([
+        "Board",
+        "wR .",
+        ". .",
+        "",
+        "click 50 50",
+        "click 150 150",
+        "wait 2000",
+        "print board",
+    ])
+
+    assert output == [
+        "wR .\n. ."
+    ]
