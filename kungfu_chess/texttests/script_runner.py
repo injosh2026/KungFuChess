@@ -1,6 +1,6 @@
 from kungfu_chess.engine.game_factory import GameFactory
 from kungfu_chess.io.board_parser import BoardParser
-
+from kungfu_chess.io.board_printer import BoardPrinter
 
 class ScriptRunner:
 
@@ -8,6 +8,7 @@ class ScriptRunner:
         self.board = None
         self.controller = None
         self.game_engine = None
+        self.board_printer = BoardPrinter()
 
 
     def load_board(self, lines):
@@ -35,3 +36,10 @@ class ScriptRunner:
             raise RuntimeError("Game is not initialized")
 
         return self.game_engine.wait(milliseconds)
+    
+    def print_board(self):
+
+        if self.board is None:
+            raise RuntimeError("Game is not initialized")
+
+        return self.board_printer.print_board(self.board)

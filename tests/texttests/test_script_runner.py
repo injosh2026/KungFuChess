@@ -60,7 +60,7 @@ class FakeGameEngine:
         self.wait_calls.append(milliseconds)
         return "done"
     
-    
+
 def test_wait_is_sent_to_game_engine():
 
     runner = ScriptRunner()
@@ -85,3 +85,31 @@ def test_wait_without_loaded_game_raises_error():
         match="Game is not initialized"
     ):
         runner.wait(1000)
+
+
+def test_print_board_returns_board_text():
+
+    runner = ScriptRunner()
+
+    lines = [
+        "wK .",
+        ". bK"
+    ]
+
+    runner.load_board(lines)
+
+    output = runner.print_board()
+
+    assert "wK" in output
+    assert "bK" in output
+
+
+def test_print_board_without_loaded_game_raises_error():
+
+    runner = ScriptRunner()
+
+    with pytest.raises(
+        RuntimeError,
+        match="Game is not initialized"
+    ):
+        runner.print_board()
