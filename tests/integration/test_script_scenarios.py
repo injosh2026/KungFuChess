@@ -77,3 +77,24 @@ def test_script_blocked_move_keeps_board_unchanged():
     assert output == [
         "wR wP .\n. . .\n. . ."
     ]
+
+
+def test_script_capture_removes_enemy_piece():
+
+    runner = ScriptRunner()
+
+    output = runner.run([
+        "Board",
+        "wR . bP",
+        ". . .",
+        ". . .",
+        "",
+        "click 50 50",
+        "click 250 50",
+        "wait 2000",
+        "print board",
+    ])
+
+    assert output == [
+        ". . wR\n. . .\n. . ."
+    ]
