@@ -10,6 +10,7 @@ from kungfu_chess.rules.knight_rule import KnightRule
 from kungfu_chess.rules.pawn_rule import PawnRule
 from kungfu_chess.rules.queen_rule import QueenRule
 from kungfu_chess.rules.rook_rule import RookRule
+from kungfu_chess.model.piece_kind import PieceKind
 
 class GameFactory:
 
@@ -20,14 +21,14 @@ class GameFactory:
 
         game_state = GameState(board)
 
-        rules = [
-            KingRule(),
-            QueenRule(),
-            RookRule(),
-            BishopRule(),
-            KnightRule(),
-            PawnRule(),
-        ]
+        rules = {
+            PieceKind.KING: KingRule(),
+            PieceKind.QUEEN: QueenRule(),
+            PieceKind.ROOK: RookRule(),
+            PieceKind.BISHOP: BishopRule(),
+            PieceKind.KNIGHT: KnightRule(),
+            PieceKind.PAWN: PawnRule(),
+        }
 
         rule_engine = RuleEngine(rules)
 
