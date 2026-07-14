@@ -17,7 +17,7 @@ def create_piece_snapshot():
         piece_id=1,
         kind=PieceKind.ROOK,
         color=Color.WHITE,
-        pixel_position=(100, 200),
+        position=Position(2,1),
         state=PieceState.IDLE
     )
 
@@ -29,7 +29,7 @@ def test_piece_snapshot_stores_data():
     assert snapshot.piece_id == 1
     assert snapshot.kind == PieceKind.ROOK
     assert snapshot.color == Color.WHITE
-    assert snapshot.pixel_position == (100, 200)
+    assert snapshot.position == Position(2,1)
     assert snapshot.state == PieceState.IDLE
 
 
@@ -57,7 +57,7 @@ def test_piece_snapshot_is_read_only():
     snapshot = create_piece_snapshot()
 
     with pytest.raises(FrozenInstanceError):
-        snapshot.pixel_position = (300, 300)
+        snapshot.position = Position(3, 3)
 
 
 def test_game_snapshot_is_read_only():

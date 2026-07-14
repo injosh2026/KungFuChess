@@ -6,8 +6,16 @@ from .piece_state import PieceState
 from .position import Position
 
 
-@dataclass
+@dataclass(slots=True)
 class Piece:
+    """
+    Represents a game piece.
+
+    A Piece stores only its identity and current state.
+    Movement rules, timing, rendering, and game logic are
+    handled by other components.
+    """
+
     id: int
     color: Color
     kind: PieceKind

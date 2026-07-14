@@ -47,7 +47,7 @@ def test_builder_converts_board_position_to_pixel_position():
 
     piece = snapshot.pieces[0]
 
-    assert piece.pixel_position == (300, 200)
+    assert piece.position == Position(2,3)
 
 
 def test_builder_preserves_piece_information():

@@ -5,9 +5,25 @@ from kungfu_chess.model.position import Position
 
 
 class PawnRule:
+    """
+    Defines movement rules for pawn pieces.
+
+    Currently supports forward movement and diagonal captures.
+    The movement direction is based on piece color and may later
+    be replaced by configurable game rules.
+    """
 
     def legal_destinations(self, board: Board, piece: Piece) -> set[Position]:
+        """
+        Calculates all legal destination positions for a pawn.
 
+        Args:
+            board: Current game board.
+            piece: Pawn whose movement is being evaluated.
+
+        Returns:
+            Set of positions the pawn can legally move to.
+        """
         destinations = set()
 
         direction = self._direction(piece.color)

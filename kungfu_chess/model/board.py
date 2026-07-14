@@ -4,8 +4,16 @@ from .position import Position
 from .piece import Piece
 
 
-@dataclass
+@dataclass(slots=True)
 class Board:
+    """
+    Represents the logical game board.
+
+    The board stores pieces by position and provides basic
+    operations such as adding, removing, and moving pieces.
+    It does not contain movement rules or game-specific logic.
+    """
+
     width: int
     height: int
     pieces_by_position: dict[Position, Piece] = field(default_factory=dict)
@@ -43,6 +51,9 @@ class Board:
 
     def move_piece(self, source: Position, target: Position) -> Piece | None:
         piece = self.pieces_by_position.pop(source)
+
+        if piece is None:
+            raise ValueError("No piece at source position")
 
         captured_piece = self.remove_piece(target)
 

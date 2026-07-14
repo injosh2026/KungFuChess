@@ -2,7 +2,14 @@ from kungfu_chess.engine.game_factory import GameFactory
 from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.io.board_printer import BoardPrinter
 
+
 class ScriptRunner:
+    """
+    Executes text-based game scenarios for testing.
+
+    ScriptRunner converts textual commands into game actions
+    through the public game APIs.
+    """
 
     def __init__(self):
         self.board = None
@@ -11,24 +18,33 @@ class ScriptRunner:
         self.board_printer = BoardPrinter()
 
     def load_board(self, lines):
+        """
+        Creates a new game from a textual board definition.
+
+        Args:
+            lines:
+                Board definition lines.
+        """
 
         parser = BoardParser()
 
         self.board = parser.parse(lines)
 
-        self.controller, self.game_engine = GameFactory.create(
-            self.board
-        )
+        self.controller, self.game_engine = GameFactory.create(self.board)
 
     def handle_click(self, x: int, y: int):
-
+        """
+        Sends a click command to the controller.
+        """
         if self.controller is None:
             raise RuntimeError("Game is not initialized")
 
         return self.controller.handle_click(x, y)
 
     def wait(self, milliseconds: int):
-
+        """
+        Advances game time and resolves completed actions.
+        """
         if self.game_engine is None:
             raise RuntimeError("Game is not initialized")
 
@@ -42,7 +58,15 @@ class ScriptRunner:
         return self.board_printer.print_board(self.board)
 
     def run(self, lines):
+        """
+        Executes a complete text scenario.
 
+        Supported commands:
+            Board
+            click x y
+            wait milliseconds
+            print board
+        """
         index = 0
         output = []
 
@@ -55,19 +79,13 @@ class ScriptRunner:
                 continue
 
             if line == "Board":
-                index = self._load_board_from_script(
-                    lines,
-                    index + 1
-                )
+                index = self._load_board_from_script(lines, index + 1)
                 continue
 
             if line.startswith("click"):
                 _, x, y = line.split()
 
-                self.handle_click(
-                    int(x),
-                    int(y)
-                )
+                self.handle_click(int(x), int(y))
 
                 index += 1
                 continue
@@ -75,27 +93,21 @@ class ScriptRunner:
             if line.startswith("wait"):
                 _, milliseconds = line.split()
 
-                self.wait(
-                    int(milliseconds)
-                )
+                self.wait(int(milliseconds))
 
                 index += 1
                 continue
 
             if line == "print board":
-                output.append(
-                    self.print_board()
-                )
+                output.append(self.print_board())
 
                 index += 1
                 continue
 
-            raise ValueError(
-                f"Unknown command: {line}"
-            )
+            raise ValueError(f"Unknown command: {line}")
 
         return output
-    
+
     def _load_board_from_script(self, lines, start_index):
 
         board_lines = []

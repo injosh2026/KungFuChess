@@ -13,14 +13,14 @@ def create_piece_snapshot(
     piece_id,
     color,
     kind,
-    x,
-    y
+    row,
+    col
 ):
     return PieceSnapshot(
         piece_id=piece_id,
         color=color,
         kind=kind,
-        pixel_position=(x, y),
+        position=Position(row, col),
         state=PieceState.IDLE
     )
 
@@ -44,8 +44,8 @@ def test_renderer_draws_piece_in_correct_position():
                 1,
                 Color.WHITE,
                 PieceKind.ROOK,
-                100,
-                200
+                2,
+                1
             )
         ]
     )
@@ -78,8 +78,8 @@ def test_renderer_draws_multiple_pieces():
                 2,
                 Color.BLACK,
                 PieceKind.QUEEN,
-                200,
-                100
+                1,
+                2
             )
         ]
     )

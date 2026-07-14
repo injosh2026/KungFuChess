@@ -31,6 +31,17 @@ class FakeArbiter:
         return []
 
 
+class FakeMotionFactory:
+
+    def create(self, piece, source, target):
+        return Motion(
+            piece.id,
+            source,
+            target,
+            1000
+        )
+    
+
 def create_engine(validation):
 
     board = Board(8, 8)
@@ -51,7 +62,8 @@ def create_engine(validation):
     engine = GameEngine(
         state,
         rule_engine,
-        RealTimeArbiter()
+        RealTimeArbiter(),
+        FakeMotionFactory()
     )
 
     return engine, state, rule_engine
@@ -224,7 +236,8 @@ def test_wait_delegates_to_real_time_arbiter():
     engine = GameEngine(
         state,
         FakeRuleEngine(MoveValidation(True, "ok")),
-        arbiter
+        arbiter,
+        FakeMotionFactory()
     )
 
     engine.wait(700)
