@@ -2,7 +2,12 @@ from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.piece_state import PieceState
 from kungfu_chess.model.position import Position
-from kungfu_chess.ui.graphical_renderer import GAME_OVER_TEXT, GraphicalRenderer
+from kungfu_chess.ui.graphical_renderer import (
+    GAME_OVER_TEXT,
+    SELECTION_BORDER_COLOR,
+    SELECTION_BORDER_THICKNESS,
+    GraphicalRenderer,
+)
 from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot
 
 CELL_SIZE = 100
@@ -12,12 +17,16 @@ class FakeImage:
     def __init__(self):
         self.draw_on_calls = []
         self.put_text_calls = []
+        self.draw_rect_calls = []
 
     def draw_on(self, other, x, y):
         self.draw_on_calls.append((other, x, y))
 
     def put_text(self, txt, x, y, font_size, color, thickness):
         self.put_text_calls.append((txt, x, y, font_size, color, thickness))
+
+    def draw_rect(self, x, y, width, height, color, thickness):
+        self.draw_rect_calls.append((x, y, width, height, color, thickness))
 
 
 class FakeSpriteLibrary:
@@ -38,12 +47,12 @@ def make_piece(row, col):
     )
 
 
-def make_snapshot(pieces, game_over=False):
+def make_snapshot(pieces, game_over=False, selected_cell=None):
     return GameSnapshot(
         board_width=8,
         board_height=8,
         pieces=pieces,
-        selected_cell=None,
+        selected_cell=selected_cell,
         game_over=game_over,
     )
 
@@ -112,6 +121,67 @@ def test_render_skips_overlay_when_game_not_over():
     assert background.put_text_calls == []
 
 
+def test_render_draws_selection_border_around_selected_cell():
+    background = FakeImage()
+    renderer = GraphicalRenderer(
+        FakeSpriteLibrary(background), CELL_SIZE, lambda piece: FakeImage()
+    )
+
+    renderer.render(make_snapshot([], selected_cell=Position(2, 3)))
+
+    assert background.draw_rect_calls == [
+        (
+            3 * CELL_SIZE,
+            2 * CELL_SIZE,
+            CELL_SIZE,
+            CELL_SIZE,
+            SELECTION_BORDER_COLOR,
+            SELECTION_BORDER_THICKNESS,
+        )
+    ]
+
+
+def test_render_skips_selection_when_no_selected_cell():
+    background = FakeImage()
+    renderer = GraphicalRenderer(
+        FakeSpriteLibrary(background), CELL_SIZE, lambda piece: FakeImage()
+    )
+
+    renderer.render(make_snapshot([], selected_cell=None))
+
+    assert background.draw_rect_calls == []
+
+
+def test_render_draws_both_selection_and_game_over():
+    background = FakeImage()
+    renderer = GraphicalRenderer(
+        FakeSpriteLibrary(background), CELL_SIZE, lambda piece: FakeImage()
+    )
+
+    renderer.render(
+        make_snapshot([], game_over=True, selected_cell=Position(0, 0))
+    )
+
+    assert len(background.draw_rect_calls) == 1
+    assert [call[0] for call in background.put_text_calls] == [GAME_OVER_TEXT]
+
+
+def test_board_offset_shifts_piece_and_selection_positions():
+    background = FakeImage()
+    frame = FakeImage()
+    offset = (40, 40)
+    renderer = GraphicalRenderer(
+        FakeSpriteLibrary(background), CELL_SIZE, lambda piece: frame, offset
+    )
+
+    renderer.render(make_snapshot([make_piece(1, 2)], selected_cell=Position(1, 2)))
+
+    expected_x = offset[0] + 2 * CELL_SIZE
+    expected_y = offset[1] + 1 * CELL_SIZE
+    assert frame.draw_on_calls == [(background, expected_x, expected_y)]
+    assert background.draw_rect_calls[0][:2] == (expected_x, expected_y)
+
+
 def test_renderer_keeps_no_state_between_renders():
     renderer = GraphicalRenderer(
         FakeSpriteLibrary(FakeImage()), CELL_SIZE, lambda piece: FakeImage()
@@ -127,4 +197,5 @@ def test_renderer_keeps_no_state_between_renders():
         "_sprite_library",
         "_cell_size",
         "_frame_provider",
+        "_board_offset",
     }

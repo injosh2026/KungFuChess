@@ -104,3 +104,33 @@ def test_close_destroys_window():
     img.close()
 
     assert window.destroyed == [TITLE]
+
+
+def test_create_blank_builds_solid_canvas():
+    img, _ = make_img()
+
+    result = img.create_blank(30, 20, (10, 20, 30, 255))
+
+    assert result is img
+    assert img.img.shape == (20, 30, 4)
+    assert tuple(int(c) for c in img.img[0, 0]) == (10, 20, 30, 255)
+
+
+def test_draw_rect_modifies_loaded_image():
+    img, _ = make_img()
+    img.create_blank(30, 30, (0, 0, 0, 255))
+
+    img.draw_rect(5, 5, 10, 10, (0, 255, 255, 255), 2)
+
+    assert img.img[5, 5].tolist() != [0, 0, 0, 255]
+
+
+def test_draw_rect_without_image_raises():
+    img, _ = make_img()
+
+    try:
+        img.draw_rect(0, 0, 5, 5)
+    except ValueError:
+        return
+
+    raise AssertionError("draw_rect should raise when no image is loaded")

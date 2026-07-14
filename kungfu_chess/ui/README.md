@@ -46,7 +46,12 @@ never depended upon by it. It never implements game rules.
 - `GraphicalRenderer` (`graphical_renderer.py`)
   - Subclasses `Renderer`, consumes only immutable `GameSnapshot` objects.
   - For each piece it asks an injected `frame_provider` for a ready frame.
-  - Draw order: background, pieces, overlays. Returns the composed canvas.
+  - Draws a selection border on `snapshot.selected_cell` when set (via
+    `Img.draw_rect`); it does not compute selection, only draws it.
+  - Applies an optional `board_offset` so the board can be drawn with a
+    margin inside a larger canvas.
+  - Draw order: background, pieces, selection, overlays. Returns the
+    composed canvas.
 
 ## Asset structure (from the CTD26 repository)
 
@@ -128,8 +133,7 @@ KungFuChess/assets/
 
 ## Current limitations
 
-- Selection highlighting is not implemented yet (left as a TODO).
-- No window, mouse input (`MouseInput`), or game loop (`GameApp`) exist yet.
+- Selection is shown as a rectangle border via `Img.draw_rect`.
 
 ## Img integration
 
@@ -138,8 +142,11 @@ KungFuChess/assets/
   approval) but keeps all `cv2` usage inside itself.
 - `Img` now exposes a small window layer for a continuous loop:
   `open_window(title)`, `present(wait_ms)` (non-blocking, returns `None`),
-  `set_click_handler(handler)` where `handler(x, y)`, and `close()`. The
-  original `read`/`draw_on`/`put_text`/`show` are unchanged.
+  `set_click_handler(handler)` where `handler(x, y)`, and `close()`. It also
+  exposes minimal drawing primitives `draw_rect(...)` (used for the
+  selection border) and `create_blank(w, h, color)` (used to build a
+  window-sized canvas with a margin). The original
+  `read`/`draw_on`/`put_text`/`show` are unchanged.
 - The window/event calls are isolated behind a small window backend
   (`Cv2Window`) that is injectable, so tests use a fake and never open a
   real window.

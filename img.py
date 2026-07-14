@@ -144,3 +144,14 @@ class Img:
 
     def close(self) -> None:
         self._window.destroy(self._title)
+
+    def create_blank(self, width, height, color=(0, 0, 0, 255)) -> "Img":
+        self.img = np.zeros((height, width, len(color)), dtype=np.uint8)
+        self.img[:] = color
+        return self
+
+    def draw_rect(self, x, y, width, height,
+                  color=(0, 255, 255, 255), thickness=3) -> None:
+        if self.img is None:
+            raise ValueError("Image not loaded.")
+        cv2.rectangle(self.img, (x, y), (x + width, y + height), color, thickness)
