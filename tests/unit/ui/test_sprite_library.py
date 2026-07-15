@@ -30,16 +30,29 @@ def build_assets(tmp_path, frame_numbers, config):
     board_path = tmp_path / "board.png"
     board_path.touch()
 
-    state_dir = tmp_path / "pieces1" / CODE / "states" / STATE
-    sprites_dir = state_dir / "sprites"
+    piece_root = tmp_path / "pieces2" / CODE
+    move_dir = piece_root / "states" / STATE
+    sprites_dir = move_dir / "sprites"
     sprites_dir.mkdir(parents=True)
 
     for number in frame_numbers:
         (sprites_dir / f"{number}.png").touch()
 
-    (state_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+    (move_dir / "config.json").write_text(
+        json.dumps(config),
+        encoding="utf-8"
+    )
 
-    return tmp_path / "pieces1", board_path
+    # create next state required by validation
+    long_rest_dir = piece_root / "states" / "long_rest"
+    long_rest_dir.mkdir(parents=True)
+
+    (long_rest_dir / "config.json").write_text(
+        json.dumps(config),
+        encoding="utf-8"
+    )
+
+    return tmp_path / "pieces2", board_path
 
 
 DEFAULT_CONFIG = {

@@ -1,4 +1,4 @@
-import examples.game_app_demo as composition
+import kungfu_chess.ui.composition_root as composition
 from kungfu_chess.engine.game_factory import GameFactory
 from kungfu_chess.input.mouse_input import MouseInput
 from kungfu_chess.io.board_parser import BoardParser

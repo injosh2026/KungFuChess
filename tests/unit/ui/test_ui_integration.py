@@ -39,7 +39,7 @@ def build_assets(tmp_path, code):
     board_path = tmp_path / "board.png"
     board_path.touch()
 
-    sprites_dir = tmp_path / "pieces1" / code / "states" / STATE / "sprites"
+    sprites_dir = tmp_path / "pieces2" / code / "states" / STATE / "sprites"
     sprites_dir.mkdir(parents=True)
     for number in (1, 2, 3):
         (sprites_dir / f"{number}.png").touch()
@@ -52,7 +52,13 @@ def build_assets(tmp_path, code):
         json.dumps(config), encoding="utf-8"
     )
 
-    return tmp_path / "pieces1", board_path
+    long_rest_dir = tmp_path / "pieces2" / code / "states" / "long_rest"
+
+    long_rest_dir.mkdir(parents=True)
+
+    (long_rest_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+    return tmp_path / "pieces2", board_path
 
 
 def make_snapshot():
@@ -79,9 +85,7 @@ def test_full_ui_chain_draws_the_animated_frame(tmp_path):
     library = SpriteLibrary(pieces_root, board_path, CELL_SIZE, FakeImageFactory())
 
     def frame_provider(piece):
-        animation = library.get_animation(
-            piece_code(piece.kind, piece.color), STATE
-        )
+        animation = library.get_animation(piece_code(piece.kind, piece.color), STATE)
         return SpriteAnimator(animation).frame_at(ELAPSED_MS)
 
     renderer = GraphicalRenderer(library, CELL_SIZE, frame_provider)

@@ -1,24 +1,16 @@
-import json
 from pathlib import Path
 from typing import Callable
 
 from img import Img
 from kungfu_chess.ui.animation_data import AnimationData
+from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 
 STATES_DIRNAME = "states"
 SPRITES_DIRNAME = "sprites"
-CONFIG_FILENAME = "config.json"
 SPRITE_EXTENSION = ".png"
 
 BOARD_CELLS_PER_SIDE = 8
 BACKGROUND_COLOR = (60, 60, 60, 255)
-
-CONFIG_PHYSICS = "physics"
-CONFIG_GRAPHICS = "graphics"
-CONFIG_SPEED = "speed_m_per_sec"
-CONFIG_NEXT_STATE = "next_state_when_finished"
-CONFIG_FPS = "frames_per_sec"
-CONFIG_IS_LOOP = "is_loop"
 
 
 class SpriteLibrary:
@@ -44,6 +36,7 @@ class SpriteLibrary:
         sprite_extension: str = SPRITE_EXTENSION,
         window_size: tuple[int, int] | None = None,
         board_margin: int = 0,
+        config_repository: PieceConfigRepository | None = None
     ):
         """
         Creates a sprite library.
@@ -69,6 +62,7 @@ class SpriteLibrary:
                 File extension used for sprite frame files.
         """
         self._pieces_root = Path(pieces_root)
+        self._config_repository = config_repository
         self._board_path = Path(board_path)
         self._cell_size = cell_size
         self._image_factory = image_factory
@@ -76,6 +70,13 @@ class SpriteLibrary:
         self._window_size = window_size
         self._board_margin = board_margin
         self._cache: dict[tuple[str, str], AnimationData] = {}
+
+        if config_repository is None:
+            config_repository = PieceConfigRepository(
+                self._pieces_root.parent
+            )
+
+        self._config_repository = config_repository
 
     def get_animation(self, code: str, state: str) -> AnimationData:
         """
@@ -115,23 +116,20 @@ class SpriteLibrary:
     def _load_animation(self, code: str, state: str) -> AnimationData:
         state_dir = self._pieces_root / code / STATES_DIRNAME / state
 
-        config = self._load_config(state_dir / CONFIG_FILENAME)
-        frames = self._load_frames(state_dir / SPRITES_DIRNAME)
+        state_config = self._config_repository.load_state(
+            code,
+            state,
+        )
 
-        physics = config[CONFIG_PHYSICS]
-        graphics = config[CONFIG_GRAPHICS]
+        frames = self._load_frames(state_dir / SPRITES_DIRNAME)
 
         return AnimationData(
             frames=frames,
-            fps=graphics[CONFIG_FPS],
-            is_loop=graphics[CONFIG_IS_LOOP],
-            next_state_when_finished=physics[CONFIG_NEXT_STATE],
-            speed_m_per_sec=physics[CONFIG_SPEED],
+            fps=state_config.graphics.frames_per_sec,
+            is_loop=state_config.graphics.is_loop,
+            next_state_when_finished=(state_config.physics.next_state_when_finished),
+            speed_m_per_sec=(state_config.physics.speed_m_per_sec),
         )
-
-    def _load_config(self, path: Path) -> dict:
-        with open(path, encoding="utf-8") as config_file:
-            return json.load(config_file)
 
     def _load_frames(self, sprites_dir: Path) -> tuple[Img, ...]:
         paths = sorted(
@@ -140,8 +138,7 @@ class SpriteLibrary:
         )
 
         return tuple(
-            self._read(path, (self._cell_size, self._cell_size))
-            for path in paths
+            self._read(path, (self._cell_size, self._cell_size)) for path in paths
         )
 
     def _read(self, path: Path, size: tuple[int, int] | None) -> Img:
