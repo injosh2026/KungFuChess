@@ -8,7 +8,6 @@ from kungfu_chess.view.game_snapshot import PieceSnapshot
 
 FPS = 4
 FRAME_DURATION_MS = 250
-MAPPING = {PieceState.IDLE: "idle"}
 
 
 class FakeImage:
@@ -44,29 +43,29 @@ def make_animation(frame_count, is_loop=True):
     )
 
 
-def make_piece():
+def make_piece(state="idle"):
     return PieceSnapshot(
         piece_id=1,
         kind=PieceKind.QUEEN,
         color=Color.WHITE,
         position=Position(0, 0),
-        state=PieceState.IDLE,
+        state=state,
     )
 
 
-def test_maps_piece_state_and_code_to_animation():
+def test_uses_piece_state_name_directly():
     animation = make_animation(3)
     library = FakeLibrary(animation)
-    provider = AnimationProvider(library, FakeClock(), MAPPING)
+    provider = AnimationProvider(library, FakeClock())
 
-    provider.frame_for(make_piece())
+    provider.frame_for(make_piece("idle"))
 
     assert library.requests == [("QW", "idle")]
 
 
 def test_returns_first_frame_at_zero_time():
     animation = make_animation(3)
-    provider = AnimationProvider(FakeLibrary(animation), FakeClock(), MAPPING)
+    provider = AnimationProvider(FakeLibrary(animation), FakeClock())
 
     assert provider.frame_for(make_piece()) is animation.frames[0]
 
@@ -74,7 +73,7 @@ def test_returns_first_frame_at_zero_time():
 def test_advances_frame_with_time():
     animation = make_animation(3)
     clock = FakeClock()
-    provider = AnimationProvider(FakeLibrary(animation), clock, MAPPING)
+    provider = AnimationProvider(FakeLibrary(animation), clock)
 
     clock.elapsed = FRAME_DURATION_MS
 
@@ -84,8 +83,18 @@ def test_advances_frame_with_time():
 def test_loops_back_to_start():
     animation = make_animation(3)
     clock = FakeClock()
-    provider = AnimationProvider(FakeLibrary(animation), clock, MAPPING)
+    provider = AnimationProvider(FakeLibrary(animation), clock)
 
     clock.elapsed = FRAME_DURATION_MS * 3
 
     assert provider.frame_for(make_piece()) is animation.frames[0]
+
+
+def test_supports_any_state_name():
+    animation = make_animation(1)
+    library = FakeLibrary(animation)
+    provider = AnimationProvider(library, FakeClock())
+
+    provider.frame_for(make_piece("long_rest"))
+
+    assert library.requests == [("QW", "long_rest")]

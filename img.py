@@ -45,10 +45,13 @@ class Img:
         self._window = window if window is not None else Cv2Window()
         self._title = DEFAULT_WINDOW_TITLE
 
-    def read(self, path: str | pathlib.Path,
-             size: tuple[int, int] | None = None,
-             keep_aspect: bool = False,
-             interpolation: int = cv2.INTER_AREA) -> "Img":
+    def read(
+        self,
+        path: str | pathlib.Path,
+        size: tuple[int, int] | None = None,
+        keep_aspect: bool = False,
+        interpolation: int = cv2.INTER_AREA,
+    ) -> "Img":
         """
         Load `path` into self.img and **optionally resize**.
 
@@ -105,7 +108,7 @@ class Img:
         if y + h > H or x + w > W:
             raise ValueError("Logo does not fit at the specified position.")
 
-        roi = other_img.img[y:y + h, x:x + w]
+        roi = other_img.img[y : y + h, x : x + w]
 
         if self.img.shape[2] == 4:
             b, g, r, a = cv2.split(self.img)
@@ -113,14 +116,21 @@ class Img:
             for c in range(3):
                 roi[..., c] = (1 - mask) * roi[..., c] + mask * self.img[..., c]
         else:
-            other_img.img[y:y + h, x:x + w] = self.img
+            other_img.img[y : y + h, x : x + w] = self.img
 
     def put_text(self, txt, x, y, font_size, color=(255, 255, 255, 255), thickness=1):
         if self.img is None:
             raise ValueError("Image not loaded.")
-        cv2.putText(self.img, txt, (x, y),
-                    cv2.FONT_HERSHEY_SIMPLEX, font_size,
-                    color, thickness, cv2.LINE_AA)
+        cv2.putText(
+            self.img,
+            txt,
+            (x, y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_size,
+            color,
+            thickness,
+            cv2.LINE_AA,
+        )
 
     def show(self):
         if self.img is None:
@@ -150,8 +160,27 @@ class Img:
         self.img[:] = color
         return self
 
-    def draw_rect(self, x, y, width, height,
-                  color=(0, 255, 255, 255), thickness=3) -> None:
+    def draw_rect(
+        self, x, y, width, height, color=(0, 255, 255, 255), thickness=3
+    ) -> None:
         if self.img is None:
             raise ValueError("Image not loaded.")
         cv2.rectangle(self.img, (x, y), (x + width, y + height), color, thickness)
+
+    def tint_rect(
+        self,
+        x,
+        y,
+        width,
+        height,
+        color=(0, 255, 255),
+        alpha=0.25,
+    ):
+        if self.img is None:
+            raise ValueError("Image not loaded.")
+
+        cell = self.img[y : y + height, x : x + width]
+
+        rgb = np.array(color)
+
+        cell[..., :3] = (cell[..., :3] * (1 - alpha) + rgb * alpha).astype("uint8")

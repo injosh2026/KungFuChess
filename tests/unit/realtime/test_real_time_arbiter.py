@@ -1,12 +1,14 @@
 from kungfu_chess.model.position import Position
-from kungfu_chess.realtime import motion
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 
 
-def create_motion():
+def create_motion(piece_id=1, start_row=0, start_col=0, target_col=5):
     return Motion(
-        piece_id=1, start=Position(0, 0), target=Position(0, 5), duration_ms=1000
+        piece_id=piece_id,
+        start=Position(start_row, start_col),
+        target=Position(start_row, target_col),
+        duration_ms=1000,
     )
 
 
@@ -18,11 +20,13 @@ def test_arbiter_starts_motion_when_empty():
     result = arbiter.start_motion(motion)
 
     assert result is True
-    assert arbiter.has_active_motion() is True
-    assert arbiter.active_motion == motion
+    assert arbiter.has_any_motion() is True
+    assert arbiter.has_motion(1) is True
+    assert arbiter.get_motion(1) == motion
+    assert arbiter.active_motions() == (motion,)
 
 
-def test_arbiter_rejects_second_motion():
+def test_arbiter_rejects_second_motion_for_same_piece():
 
     arbiter = RealTimeArbiter()
 
@@ -34,20 +38,40 @@ def test_arbiter_rejects_second_motion():
     result = arbiter.start_motion(second)
 
     assert result is False
-    assert arbiter.active_motion == first
+    assert arbiter.get_motion(1) == first
+    assert arbiter.active_motions() == (first,)
 
 
-def test_advance_time_updates_active_motion():
+def test_arbiter_allows_parallel_motions_for_different_pieces():
 
     arbiter = RealTimeArbiter()
-    motion = create_motion()
 
-    arbiter.start_motion(motion)
+    first = create_motion(piece_id=1)
+    second = create_motion(piece_id=2, start_row=2)
+
+    assert arbiter.start_motion(first) is True
+    assert arbiter.start_motion(second) is True
+
+    assert arbiter.active_piece_ids() == frozenset({1, 2})
+    assert len(arbiter.active_motions()) == 2
+    assert arbiter.get_motion(1) == first
+    assert arbiter.get_motion(2) == second
+
+
+def test_advance_time_updates_all_active_motions():
+
+    arbiter = RealTimeArbiter()
+    first = create_motion(piece_id=1)
+    second = create_motion(piece_id=2, start_row=2)
+
+    arbiter.start_motion(first)
+    arbiter.start_motion(second)
 
     completed = arbiter.advance_time(500)
 
     assert completed == []
-    assert motion.elapsed_ms == 500
+    assert first.elapsed_ms == 500
+    assert second.elapsed_ms == 500
 
 
 def test_completed_motion_is_removed():
@@ -60,8 +84,23 @@ def test_completed_motion_is_removed():
     completed = arbiter.advance_time(1000)
 
     assert completed == [motion]
-    assert arbiter.has_active_motion() is False
-    assert arbiter.active_motion is None
+    assert arbiter.has_any_motion() is False
+    assert arbiter.get_motion(1) is None
+
+
+def test_two_motions_complete_in_same_tick():
+
+    arbiter = RealTimeArbiter()
+    first = create_motion(piece_id=1)
+    second = create_motion(piece_id=2, start_row=2)
+
+    arbiter.start_motion(first)
+    arbiter.start_motion(second)
+
+    completed = arbiter.advance_time(1000)
+
+    assert completed == [first, second]
+    assert arbiter.has_any_motion() is False
 
 
 def test_advance_time_without_motion_does_nothing():
@@ -71,4 +110,4 @@ def test_advance_time_without_motion_does_nothing():
     completed = arbiter.advance_time(500)
 
     assert completed == []
-    assert arbiter.has_active_motion() is False
+    assert arbiter.has_any_motion() is False

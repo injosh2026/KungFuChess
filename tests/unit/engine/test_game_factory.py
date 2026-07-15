@@ -30,4 +30,4 @@ def test_factory_creates_engine_with_empty_realtime_state():
 
     _, engine = GameFactory.create(board)
 
-    assert engine.realtime_arbiter.has_active_motion() is False
+    assert engine.realtime_arbiter.has_any_motion() is False

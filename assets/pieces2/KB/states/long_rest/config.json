@@ -1,7 +1,8 @@
 {
   "physics": {
     "speed_m_per_sec": 0.0,
-    "next_state_when_finished": "idle"
+    "next_state_when_finished": "idle",
+    "duration_ms": 3000
   },
   "graphics": {
     "frames_per_sec": 6,

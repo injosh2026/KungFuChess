@@ -20,4 +20,4 @@ class Piece:
     color: Color
     kind: PieceKind
     cell: Position
-    state: PieceState = PieceState.IDLE
+    state: str = PieceState.IDLE

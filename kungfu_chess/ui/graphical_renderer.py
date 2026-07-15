@@ -3,6 +3,7 @@ from typing import Callable
 from img import Img
 from kungfu_chess.model.position import Position
 from kungfu_chess.ui.sprite_library import SpriteLibrary
+from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot
 from kungfu_chess.view.renderer import Renderer
 
@@ -15,6 +16,8 @@ SELECTION_BORDER_COLOR = (0, 255, 255, 255)
 SELECTION_BORDER_THICKNESS = 6
 NO_OFFSET = (0, 0)
 
+LEGAL_MOVE_ALPHA = 0.25
+
 
 class GraphicalRenderer(Renderer):
     """
@@ -25,8 +28,9 @@ class GraphicalRenderer(Renderer):
     injected frame provider for a ready-to-draw frame; it does not select
     states or advance animation itself.
 
-    Draw order: background, pieces, selection, overlays. The composed
-    canvas is returned; presenting it is left to the caller.
+    Draw order: background, legal moves, state progress overlays, pieces,
+    selection, game over. Overlays are drawn beneath piece sprites so the
+    piece remains visible while the cell fill drains over time.
     """
 
     def __init__(
@@ -34,6 +38,7 @@ class GraphicalRenderer(Renderer):
         sprite_library: SpriteLibrary,
         cell_size: int,
         frame_provider: Callable[[PieceSnapshot], Img],
+        state_progress_overlay: StateProgressOverlay,
         board_offset: tuple[int, int] = NO_OFFSET,
     ):
         """
@@ -50,6 +55,10 @@ class GraphicalRenderer(Renderer):
                 Callable that returns the ready frame to draw for a
                 given piece snapshot.
 
+            state_progress_overlay:
+                Draws a visual effect when a piece snapshot carries
+                timed-state progress.
+
             board_offset:
                 Pixel (x, y) offset of the board's top-left corner inside
                 the canvas, used to leave a margin around the board.
@@ -57,10 +66,15 @@ class GraphicalRenderer(Renderer):
         self._sprite_library = sprite_library
         self._cell_size = cell_size
         self._frame_provider = frame_provider
+        self._state_progress_overlay = state_progress_overlay
         self._board_offset = board_offset
 
     def render(self, snapshot: GameSnapshot) -> Img:
         canvas = self._sprite_library.background()
+
+        self._draw_legal_moves(snapshot.legal_moves, canvas)
+
+        self._draw_state_progress_overlays(snapshot, canvas)
 
         self._draw_pieces(snapshot, canvas)
 
@@ -75,13 +89,31 @@ class GraphicalRenderer(Renderer):
     def _draw_pieces(self, snapshot: GameSnapshot, canvas: Img) -> None:
         for piece in snapshot.pieces:
             frame = self._frame_provider(piece)
-
-            if piece.visual_position is not None:
-                x, y = piece.visual_position
-            else:
-                x, y = self._cell_to_pixel(piece)
-
+            x, y = self._piece_draw_position(piece)
             frame.draw_on(canvas, int(x), int(y))
+
+    def _draw_state_progress_overlays(
+        self,
+        snapshot: GameSnapshot,
+        canvas: Img,
+    ) -> None:
+        for piece in snapshot.pieces:
+            if piece.state_progress is None:
+                continue
+
+            x, y = self._piece_draw_position(piece)
+            self._state_progress_overlay.draw(
+                canvas,
+                int(x),
+                int(y),
+                self._cell_size,
+                piece.state_progress,
+            )
+
+    def _piece_draw_position(self, piece: PieceSnapshot) -> tuple[float, float]:
+        if piece.visual_position is not None:
+            return piece.visual_position
+        return self._cell_to_pixel(piece)
 
     def _draw_selection(self, cell: Position, canvas: Img) -> None:
         x, y = self._cell_origin(cell.row, cell.col)
@@ -112,3 +144,20 @@ class GraphicalRenderer(Renderer):
         x = offset_x + col * self._cell_size
         y = offset_y + row * self._cell_size
         return x, y
+
+    def _draw_legal_moves(self, moves: set[Position], canvas: Img, ) -> None:
+
+        for move in moves:
+            x, y = self._cell_origin(
+                move.row,
+                move.col,
+            )
+
+            canvas.tint_rect(
+                x,
+                y,
+                self._cell_size,
+                self._cell_size,
+                color=(0, 255, 255),
+                alpha=LEGAL_MOVE_ALPHA,
+            )

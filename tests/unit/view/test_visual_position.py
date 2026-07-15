@@ -12,4 +12,4 @@ def test_calculates_middle_of_motion():
         0.5,
     )
 
-    assert result == (0, 100)
+    assert result == (50.0, 150.0)

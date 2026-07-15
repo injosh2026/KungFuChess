@@ -21,3 +21,15 @@ def test_piece_state_can_change():
     piece.state = PieceState.MOVING
 
     assert piece.state == PieceState.MOVING
+
+
+def test_piece_accepts_any_state_string():
+    piece = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0),
+        state="jump",
+    )
+
+    assert piece.state == "jump"

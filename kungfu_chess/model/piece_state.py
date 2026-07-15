@@ -1,15 +1,13 @@
-from enum import Enum
-
-
-class PieceState(Enum):
+class PieceState:
     """
-    Represents the lifecycle state of a game piece.
+    Common piece state name constants.
 
-    The state describes whether a piece is currently idle,
-    moving, or has been captured. Movement details such as
-    destination and elapsed time are stored separately in Motion.
+    Piece states are open strings matching asset state folder names.
+    Any other string is also valid at runtime; this class is not an
+    exhaustive enum.
     """
 
     IDLE = "idle"
-    MOVING = "moving"
+    MOVING = "move"
+    LONG_REST = "long_rest"
     CAPTURED = "captured"

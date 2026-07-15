@@ -61,3 +61,19 @@ class RuleEngine:
             return MoveValidation(False, MoveReason.ILLEGAL_PIECE_MOVE)
 
         return MoveValidation(True, MoveReason.OK)
+
+    def legal_moves(self, board: Board, position: Position) -> set[Position]:
+        piece = board.get_piece_by_position(position)
+
+        if piece is None:
+            return set()
+
+        rule = self._rules.get(piece.kind)
+
+        if rule is None:
+            return set()
+
+        return rule.legal_destinations(
+            board,
+            piece,
+        )

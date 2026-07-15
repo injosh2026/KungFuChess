@@ -12,7 +12,7 @@ never depended upon by it. It never implements game rules.
   `frame_provider`).
 - `GraphicalRenderer`: snapshot + `Img` frame -> drawing (holds no state
   between renders; all per-frame data arrives as input).
-- `GameApp` (future): orchestration only.
+- `GameApp`: orchestration only.
 
 ## Currently implemented components
 
@@ -116,20 +116,19 @@ KungFuChess/assets/
 - Signature: `Callable[[PieceSnapshot], Img]` — returns the ready frame to
   draw for a piece. `AnimationProvider.frame_for` implements it.
 - Everything the provider needs is decided outside the renderer:
-  - which asset state a piece is in (state mapping injected into
-    `AnimationProvider`),
+  - the piece's current state name (from ``PieceSnapshot.state``),
   - the elapsed time for the animation (from the injected
-    `AnimationClock`),
-  - which `AnimationData` / `SpriteAnimator` to use.
+    ``AnimationClock``),
+  - which ``AnimationData`` / ``SpriteAnimator`` to use.
+- ``AnimationProvider`` loads the asset folder named by
+  ``PieceSnapshot.state`` directly. There is no enum-to-asset mapping.
 - The renderer never decides state, elapsed time, or animation.
 
-## State mapping (open)
+## Piece state in snapshots
 
-- No mapping is assumed between the backend `PieceState`
-  (`IDLE`/`MOVING`/`CAPTURED`) and the asset states
-  (`idle`/`jump`/`move`/`long_rest`/`short_rest`).
-- Wiring `PieceState` to asset states will live inside the externally
-  owned `frame_provider`; it is a future connection point.
+- ``SnapshotBuilder`` copies ``Piece.state`` into ``PieceSnapshot.state``.
+- Active motions affect only ``PieceSnapshot.visual_position``.
+- Renderers and ``AnimationProvider`` consume the snapshot state name as-is.
 
 ## Current limitations
 

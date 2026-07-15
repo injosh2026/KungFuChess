@@ -36,7 +36,7 @@ class SpriteLibrary:
         sprite_extension: str = SPRITE_EXTENSION,
         window_size: tuple[int, int] | None = None,
         board_margin: int = 0,
-        config_repository: PieceConfigRepository | None = None
+        config_repository: PieceConfigRepository | None = None,
     ):
         """
         Creates a sprite library.
@@ -72,9 +72,7 @@ class SpriteLibrary:
         self._cache: dict[tuple[str, str], AnimationData] = {}
 
         if config_repository is None:
-            config_repository = PieceConfigRepository(
-                self._pieces_root.parent
-            )
+            config_repository = PieceConfigRepository(self._pieces_root.parent)
 
         self._config_repository = config_repository
 

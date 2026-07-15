@@ -1,10 +1,15 @@
+from pathlib import Path
+
+from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.engine.game_engine import GameEngine
 from kungfu_chess.engine.motion_factory import MotionFactory
+from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
 from kungfu_chess.input.board_mapper import BoardMapper
 from kungfu_chess.input.controller import Controller
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.realtime.movement_duration import MovementDurationCalculator
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
+from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.rule_engine import RuleEngine
 from kungfu_chess.rules.bishop_rule import BishopRule
 from kungfu_chess.rules.king_rule import KingRule
@@ -13,6 +18,8 @@ from kungfu_chess.rules.pawn_rule import PawnRule
 from kungfu_chess.rules.queen_rule import QueenRule
 from kungfu_chess.rules.rook_rule import RookRule
 from kungfu_chess.model.piece_kind import PieceKind
+
+ASSETS_ROOT = Path(__file__).resolve().parent.parent.parent / "assets"
 
 
 class GameFactory:
@@ -62,7 +69,19 @@ class GameFactory:
             MovementDurationCalculator()
         )
 
-        game_engine = GameEngine(game_state, rule_engine, realtime_arbiter, motion_factory)
+        config_repository = PieceConfigRepository(ASSETS_ROOT)
+        state_transition_resolver = StateTransitionResolver(config_repository)
+        state_timer = StateTimer()
+
+        game_engine = GameEngine(
+            game_state,
+            rule_engine,
+            realtime_arbiter,
+            motion_factory,
+            state_transition_resolver,
+            config_repository,
+            state_timer,
+        )
 
         board_mapper = BoardMapper(GameFactory.CELL_SIZE)
 

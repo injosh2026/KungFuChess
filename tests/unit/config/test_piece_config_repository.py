@@ -53,6 +53,12 @@ def test_load_move_state():
     assert config.graphics.is_loop is True
 
 
+def test_get_move_command_state_from_defaults():
+    repository = PieceConfigRepository(Path("assets"))
+
+    assert repository.get_move_command_state("QW") == "move"
+
+
 def test_load_state_returns_cached_instance():
     repository = PieceConfigRepository(Path("assets"))
 

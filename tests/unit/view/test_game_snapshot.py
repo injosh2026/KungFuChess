@@ -22,6 +22,20 @@ def create_piece_snapshot():
     )
 
 
+def test_piece_snapshot_stores_state_progress():
+
+    snapshot = PieceSnapshot(
+        piece_id=1,
+        kind=PieceKind.ROOK,
+        color=Color.WHITE,
+        position=Position(2, 1),
+        state=PieceState.IDLE,
+        state_progress=0.5,
+    )
+
+    assert snapshot.state_progress == 0.5
+
+
 def test_piece_snapshot_stores_data():
 
     snapshot = create_piece_snapshot()
@@ -42,7 +56,8 @@ def test_game_snapshot_stores_board_state():
         board_height=8,
         pieces=[piece],
         selected_cell=Position(0, 0),
-        game_over=False
+        legal_moves=set(),
+        game_over=False,
     )
 
     assert snapshot.board_width == 8
@@ -67,7 +82,8 @@ def test_game_snapshot_is_read_only():
         board_height=8,
         pieces=[],
         selected_cell=None,
-        game_over=False
+        legal_moves=set(),
+        game_over=False,
     )
 
     with pytest.raises(FrozenInstanceError):

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 class PhysicsConfig:
     speed_m_per_sec: float
     next_state_when_finished: str
-    # duration_ms: int | None = None
+    duration_ms: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

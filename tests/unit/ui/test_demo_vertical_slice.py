@@ -3,6 +3,7 @@ from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
 from kungfu_chess.ui.sprite_library import SpriteLibrary
+from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 
 BOARD_SIZE = 8
 EXPECTED_PIECE_COUNT = 32
@@ -21,6 +22,11 @@ class FakeLibrary:
         return FakeImg()
 
 
+class FakeStateProgressOverlay:
+    def draw(self, canvas, x, y, cell_size, progress):
+        pass
+
+
 def test_snapshot_has_full_starting_board():
     snapshot = demo.build_snapshot()
 
@@ -37,7 +43,12 @@ def test_renderer_draws_every_piece_from_snapshot():
         requested.append(piece.piece_id)
         return FakeImg()
 
-    canvas = GraphicalRenderer(FakeLibrary(), demo.CELL_SIZE, provider).render(snapshot)
+    canvas = GraphicalRenderer(
+        FakeLibrary(),
+        demo.CELL_SIZE,
+        provider,
+        FakeStateProgressOverlay(),
+    ).render(snapshot)
 
     assert len(requested) == EXPECTED_PIECE_COUNT
     assert len(canvas.draws) == EXPECTED_PIECE_COUNT
@@ -49,10 +60,10 @@ def test_full_board_renders_with_bundled_assets():
         demo.ASSETS_ROOT / demo.BOARD_FILENAME,
         demo.CELL_SIZE,
     )
-    provider = AnimationProvider(
-        library, AnimationClock(), demo.ASSET_STATE_BY_PIECE_STATE
+    provider = AnimationProvider(library, AnimationClock())
+    renderer = GraphicalRenderer(
+        library, demo.CELL_SIZE, provider.frame_for, StateProgressOverlay()
     )
-    renderer = GraphicalRenderer(library, demo.CELL_SIZE, provider.frame_for)
 
     canvas = renderer.render(demo.build_snapshot())
 

@@ -17,12 +17,21 @@ class FakeBoardMapper:
 
 class FakeGameEngine:
 
-    def __init__(self):
+    def __init__(self, in_cooldown=False):
         self.calls = []
+        self.legal_moves_calls = []
+        self.in_cooldown = in_cooldown
 
     def request_move(self, source, destination):
         self.calls.append((source, destination))
         return "move_result"
+
+    def is_piece_in_cooldown(self, piece_id):
+        return self.in_cooldown
+
+    def get_legal_moves(self, position):
+        self.legal_moves_calls.append(position)
+        return {Position(0, 1)}
 
 
 def create_controller():
@@ -124,3 +133,31 @@ def test_click_outside_board_with_selection_cancels_selection():
 
     assert controller.selected_position is None
     assert engine.calls == []
+
+
+def test_click_does_not_select_piece_in_cooldown():
+    controller, engine = create_controller()
+    engine.in_cooldown = True
+
+    controller.handle_click(50, 50)
+
+    assert controller.selected_position is None
+    assert engine.calls == []
+
+
+def test_legal_moves_are_empty_when_selected_piece_is_in_cooldown():
+    controller, engine = create_controller()
+    engine.in_cooldown = True
+    controller._selected_position = Position(0, 0)
+
+    assert controller.legal_moves == set()
+    assert engine.legal_moves_calls == []
+
+
+def test_legal_moves_use_rule_engine_when_piece_is_not_in_cooldown():
+    controller, engine = create_controller()
+
+    controller.handle_click(50, 50)
+
+    assert controller.legal_moves == {Position(0, 1)}
+    assert engine.legal_moves_calls == [Position(0, 0)]

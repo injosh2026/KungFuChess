@@ -8,6 +8,7 @@ from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
 from kungfu_chess.ui.piece_code import piece_code
 from kungfu_chess.ui.sprite_animator import SpriteAnimator
 from kungfu_chess.ui.sprite_library import SpriteLibrary
+from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot
 
 CELL_SIZE = 100
@@ -75,6 +76,7 @@ def make_snapshot():
         pieces=[piece],
         selected_cell=None,
         game_over=False,
+        legal_moves=set(),
     )
 
 
@@ -88,7 +90,9 @@ def test_full_ui_chain_draws_the_animated_frame(tmp_path):
         animation = library.get_animation(piece_code(piece.kind, piece.color), STATE)
         return SpriteAnimator(animation).frame_at(ELAPSED_MS)
 
-    renderer = GraphicalRenderer(library, CELL_SIZE, frame_provider)
+    renderer = GraphicalRenderer(
+        library, CELL_SIZE, frame_provider, StateProgressOverlay()
+    )
 
     canvas = renderer.render(make_snapshot())
 

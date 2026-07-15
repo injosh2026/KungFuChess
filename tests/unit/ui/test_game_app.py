@@ -48,22 +48,22 @@ class FakeSnapshotBuilder:
     def __init__(self):
         self.calls = []
 
-    def build(self, game_state, selected_cell=None, motion=None):
-        self.calls.append((game_state, selected_cell, motion))
+    def build(self, game_state, selected_cell=None, motions=None, legal_moves=None):
+        self.calls.append((game_state, selected_cell, motions, legal_moves))
         return ("snapshot", len(self.calls))
 
 
 class FakeGameEngine:
     def __init__(self, game_state):
         self.game_state = game_state
-        self.realtime_arbiter = SimpleNamespace(
-            active_motion=None
-        )
         self.waits = []
 
     def wait(self, milliseconds):
         self.waits.append(milliseconds)
         return []
+
+    def active_motions(self):
+        return ()
 
 
 class FakeController:
@@ -73,6 +73,10 @@ class FakeController:
     @property
     def selected_position(self):
         return self._selected
+
+    @property
+    def legal_moves(self):
+        return set()
 
 
 class FakeClock:
@@ -127,7 +131,7 @@ def test_builds_snapshot_from_state_and_selection():
 
     app.run()
 
-    assert builder.calls == [(GAME_STATE, SELECTED, None)] * STOP_AFTER
+    assert builder.calls == [(GAME_STATE, SELECTED, (), set())] * STOP_AFTER
 
 
 def test_renders_and_presents_each_iteration():

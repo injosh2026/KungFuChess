@@ -6,7 +6,6 @@ it connects existing components but contains no game logic.
 """
 
 from kungfu_chess.config.demo_config import (
-    ASSET_STATE_BY_PIECE_STATE,
     ASSETS_ROOT,
     BOARD_FILENAME,
     PIECE_SET,
@@ -20,6 +19,7 @@ from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.ui.game_app import GameApp
 from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
 from kungfu_chess.ui.sprite_library import BOARD_CELLS_PER_SIDE, SpriteLibrary
+from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
 from kungfu_chess.view.visual_position import VisualPositionCalculator
 
@@ -56,13 +56,20 @@ def build_app(image) -> GameApp:
         board_margin=BOARD_MARGIN,
     )
     clock = AnimationClock()
-    provider = AnimationProvider(library, clock, ASSET_STATE_BY_PIECE_STATE)
+    provider = AnimationProvider(library, clock)
     renderer = GraphicalRenderer(
-        library, DISPLAY_CELL_SIZE, provider.frame_for, BOARD_OFFSET
+        library,
+        DISPLAY_CELL_SIZE,
+        provider.frame_for,
+        StateProgressOverlay(),
+        BOARD_OFFSET,
     )
     visual_position_calculator = VisualPositionCalculator(DISPLAY_CELL_SIZE)
 
-    snapshot_builder = SnapshotBuilder(visual_position_calculator)
+    snapshot_builder = SnapshotBuilder(
+        visual_position_calculator,
+        get_state_progress=game_engine.state_timer_progress,
+    )
 
     image.open_window()
 

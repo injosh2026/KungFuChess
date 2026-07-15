@@ -44,6 +44,10 @@ class Controller:
         if self._selected_position is None:
             return set()
 
+        piece = self.board.get_piece_by_position(self._selected_position)
+        if piece is not None and self.game_engine.is_piece_in_cooldown(piece.id):
+            return set()
+
         return self.game_engine.get_legal_moves(
             self._selected_position
         )
@@ -82,6 +86,9 @@ class Controller:
             piece = self.board.get_piece_by_position(position)
 
             if piece is None:
+                return None
+
+            if self.game_engine.is_piece_in_cooldown(piece.id):
                 return None
 
             self._selected_position = position
