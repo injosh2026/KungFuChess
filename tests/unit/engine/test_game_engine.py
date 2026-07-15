@@ -274,6 +274,111 @@ def test_wait_resolves_two_completed_motions_in_same_tick():
     assert engine.active_motions() == ()
 
 
+def test_later_arrival_captures_standing_enemy():
+    engine, state, _ = create_engine(MoveValidation(True, "ok"))
+
+    enemy = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 3),
+    )
+    state.board.add_piece(enemy)
+
+    engine.request_move(Position(0, 0), Position(0, 3))
+    captured = engine.wait(1000)
+
+    assert captured == [enemy]
+    assert state.board.get_piece_by_position(Position(0, 3)).id == 1
+    assert state.board.get_piece_by_id(2) is None
+
+
+def test_later_arrival_to_same_cell_captures_earlier_arrival():
+    board = Board(8, 8)
+    earlier = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0),
+    )
+    later = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.ROOK,
+        cell=Position(2, 0),
+    )
+    board.add_piece(earlier)
+    board.add_piece(later)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+
+    target = Position(0, 3)
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(0, 0), target, duration_ms=500)
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(2, Position(2, 0), target, duration_ms=1000)
+    )
+
+    captured = engine.wait(1000)
+
+    assert captured == [earlier]
+    assert state.board.get_piece_by_position(target).id == 2
+    assert state.board.get_piece_by_id(1) is None
+
+
+def test_same_cell_same_duration_uses_piece_id_tie_break():
+    board = Board(8, 8)
+    earlier = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0),
+    )
+    later = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.ROOK,
+        cell=Position(2, 0),
+    )
+    board.add_piece(earlier)
+    board.add_piece(later)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+
+    target = Position(0, 3)
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(0, 0), target, duration_ms=1000)
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(2, Position(2, 0), target, duration_ms=1000)
+    )
+
+    captured = engine.wait(1000)
+
+    assert captured == [earlier]
+    assert state.board.get_piece_by_position(target).id == 2
+    assert state.board.get_piece_by_id(1) is None
+
+
 def test_capturing_king_ends_game():
 
     engine, state, _ = create_engine(

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
+from kungfu_chess.engine.collision_resolver import CollisionResolver
 from kungfu_chess.engine.game_engine import GameEngine
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
@@ -72,6 +73,7 @@ class GameFactory:
         config_repository = PieceConfigRepository(ASSETS_ROOT)
         state_transition_resolver = StateTransitionResolver(config_repository)
         state_timer = StateTimer()
+        collision_resolver = CollisionResolver()
 
         game_engine = GameEngine(
             game_state,
@@ -81,6 +83,7 @@ class GameFactory:
             state_transition_resolver,
             config_repository,
             state_timer,
+            collision_resolver,
         )
 
         board_mapper = BoardMapper(GameFactory.CELL_SIZE)

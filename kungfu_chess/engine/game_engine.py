@@ -1,6 +1,7 @@
 from kungfu_chess.config.piece_code import piece_code
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.engine.arrival_resolver import ArrivalResolver
+from kungfu_chess.engine.collision_resolver import CollisionResolver
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.move_result import MoveResult
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
@@ -36,6 +37,7 @@ class GameEngine:
         state_transition_resolver: StateTransitionResolver,
         config_repository: PieceConfigRepository,
         state_timer: StateTimer,
+        collision_resolver: CollisionResolver | None = None,
     ):
         self.game_state = game_state
         self.rule_engine = rule_engine
@@ -45,6 +47,7 @@ class GameEngine:
         self._state_transition_resolver = state_transition_resolver
         self._config_repository = config_repository
         self._state_timer = state_timer
+        self._collision_resolver = collision_resolver or CollisionResolver()
 
     def request_move(self, source, destination) -> MoveResult:
 
@@ -101,7 +104,14 @@ class GameEngine:
 
         captured_pieces = []
 
-        for motion in completed_motions:
+        sorted_motions = self._collision_resolver.sort_arrivals(completed_motions)
+
+        for motion in sorted_motions:
+            self._collision_resolver.resolve_arrival(
+                motion,
+                self.game_state.board,
+            )
+
             captured = self.arrival_resolver.resolve(motion)
 
             if captured is not None:
