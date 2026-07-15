@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 
 from kungfu_chess.ui.game_app import PRESENT_WAIT_MS, GameApp
@@ -46,14 +48,17 @@ class FakeSnapshotBuilder:
     def __init__(self):
         self.calls = []
 
-    def build(self, game_state, selected_cell=None):
-        self.calls.append((game_state, selected_cell))
+    def build(self, game_state, selected_cell=None, motion=None):
+        self.calls.append((game_state, selected_cell, motion))
         return ("snapshot", len(self.calls))
 
 
 class FakeGameEngine:
     def __init__(self, game_state):
         self.game_state = game_state
+        self.realtime_arbiter = SimpleNamespace(
+            active_motion=None
+        )
         self.waits = []
 
     def wait(self, milliseconds):
@@ -122,7 +127,7 @@ def test_builds_snapshot_from_state_and_selection():
 
     app.run()
 
-    assert builder.calls == [(GAME_STATE, SELECTED)] * STOP_AFTER
+    assert builder.calls == [(GAME_STATE, SELECTED, None)] * STOP_AFTER
 
 
 def test_renders_and_presents_each_iteration():

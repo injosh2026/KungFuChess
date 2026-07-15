@@ -39,11 +39,15 @@ from kungfu_chess.config.demo_config import (
     PRESENT_WAIT_MS,
     STARTING_BOARD,
 )
+from kungfu_chess.view.visual_position import VisualPositionCalculator
+
 
 def build_snapshot():
     board = BoardParser().parse(STARTING_BOARD)
     _, game_engine = GameFactory.create(board)
-    return SnapshotBuilder().build(game_engine.game_state)
+    calculator = VisualPositionCalculator(CELL_SIZE)
+
+    return SnapshotBuilder(calculator).build(game_engine.game_state)
 
 
 def main() -> None:

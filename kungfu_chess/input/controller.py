@@ -39,6 +39,15 @@ class Controller:
     def selected_position(self) -> Position | None:
         return self._selected_position
 
+    @property
+    def legal_moves(self):
+        if self._selected_position is None:
+            return set()
+
+        return self.game_engine.get_legal_moves(
+            self._selected_position
+        )
+
     def handle_click(self, x: int, y: int):
         """
         Processes a mouse click.

@@ -75,8 +75,13 @@ class GraphicalRenderer(Renderer):
     def _draw_pieces(self, snapshot: GameSnapshot, canvas: Img) -> None:
         for piece in snapshot.pieces:
             frame = self._frame_provider(piece)
-            x, y = self._cell_to_pixel(piece)
-            frame.draw_on(canvas, x, y)
+
+            if piece.visual_position is not None:
+                x, y = piece.visual_position
+            else:
+                x, y = self._cell_to_pixel(piece)
+
+            frame.draw_on(canvas, int(x), int(y))
 
     def _draw_selection(self, cell: Position, canvas: Img) -> None:
         x, y = self._cell_origin(cell.row, cell.col)

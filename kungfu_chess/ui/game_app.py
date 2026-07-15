@@ -54,6 +54,7 @@ class GameApp:
                 snapshot = self._snapshot_builder.build(
                     self._game_engine.game_state,
                     self._controller.selected_position,
+                    self._game_engine.realtime_arbiter.active_motion,
                 )
 
                 canvas = self._renderer.render(snapshot)

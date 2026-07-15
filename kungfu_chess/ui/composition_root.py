@@ -4,6 +4,7 @@ Builds all UI dependencies and starts GameApp.
 This module is the composition root:
 it connects existing components but contains no game logic.
 """
+
 from kungfu_chess.config.demo_config import (
     ASSET_STATE_BY_PIECE_STATE,
     ASSETS_ROOT,
@@ -20,6 +21,7 @@ from kungfu_chess.ui.game_app import GameApp
 from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
 from kungfu_chess.ui.sprite_library import BOARD_CELLS_PER_SIDE, SpriteLibrary
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
+from kungfu_chess.view.visual_position import VisualPositionCalculator
 
 DISPLAY_CELL_SIZE = 90
 BOARD_MARGIN = 40
@@ -58,7 +60,9 @@ def build_app(image) -> GameApp:
     renderer = GraphicalRenderer(
         library, DISPLAY_CELL_SIZE, provider.frame_for, BOARD_OFFSET
     )
-    snapshot_builder = SnapshotBuilder()
+    visual_position_calculator = VisualPositionCalculator(DISPLAY_CELL_SIZE)
+
+    snapshot_builder = SnapshotBuilder(visual_position_calculator)
 
     image.open_window()
 
