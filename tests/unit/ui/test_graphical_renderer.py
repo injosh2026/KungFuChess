@@ -8,7 +8,8 @@ from kungfu_chess.ui.graphical_renderer import (
     SELECTION_BORDER_THICKNESS,
     GraphicalRenderer,
 )
-from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot
+from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
+from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot, PromotionSnapshot
 
 CELL_SIZE = 100
 
@@ -21,17 +22,28 @@ class FakeStateProgressOverlay:
         self.calls.append((canvas, x, y, cell_size, progress))
 
 
-def make_renderer(background, provider=None, overlay=None, board_offset=(0, 0)):
+class FakePromotionPickerOverlay:
+    def __init__(self):
+        self.draw_calls = []
+
+    def draw(self, canvas, promotion):
+        self.draw_calls.append(promotion)
+
+
+def make_renderer(background, provider=None, overlay=None, promotion_picker=None, board_offset=(0, 0)):
     if provider is None:
         provider = lambda piece: FakeImage()
     if overlay is None:
         overlay = FakeStateProgressOverlay()
+    if promotion_picker is None:
+        promotion_picker = FakePromotionPickerOverlay()
 
     return GraphicalRenderer(
         FakeSpriteLibrary(background),
         CELL_SIZE,
         provider,
         overlay,
+        promotion_picker,
         board_offset,
     )
 
@@ -70,7 +82,7 @@ def make_piece(row, col):
     )
 
 
-def make_snapshot(pieces, game_over=False, selected_cell=None):
+def make_snapshot(pieces, game_over=False, selected_cell=None, pending_promotion=None):
     return GameSnapshot(
         board_width=8,
         board_height=8,
@@ -78,6 +90,7 @@ def make_snapshot(pieces, game_over=False, selected_cell=None):
         selected_cell=selected_cell,
         legal_moves=set(),
         game_over=game_over,
+        pending_promotion=pending_promotion,
     )
 
 
@@ -276,6 +289,32 @@ def test_state_progress_overlay_ignores_state_string():
     assert all(call[4] == 0.0 for call in overlay.calls)
 
 
+def test_render_draws_promotion_picker_when_pending_promotion_exists():
+    background = FakeImage()
+    promotion_picker = FakePromotionPickerOverlay()
+    renderer = make_renderer(background, promotion_picker=promotion_picker)
+    promotion = PromotionSnapshot(
+        piece_id=1,
+        position=Position(0, 3),
+        color=Color.WHITE,
+        allowed_kinds=frozenset({PieceKind.QUEEN, PieceKind.KNIGHT}),
+    )
+
+    renderer.render(make_snapshot([], pending_promotion=promotion))
+
+    assert promotion_picker.draw_calls == [promotion]
+
+
+def test_render_skips_promotion_picker_when_no_pending_promotion():
+    background = FakeImage()
+    promotion_picker = FakePromotionPickerOverlay()
+    renderer = make_renderer(background, promotion_picker=promotion_picker)
+
+    renderer.render(make_snapshot([]))
+
+    assert promotion_picker.draw_calls == []
+
+
 def test_renderer_keeps_no_state_between_renders():
     renderer = make_renderer(FakeImage())
 
@@ -290,5 +329,6 @@ def test_renderer_keeps_no_state_between_renders():
         "_cell_size",
         "_frame_provider",
         "_state_progress_overlay",
+        "_promotion_picker_overlay",
         "_board_offset",
     }

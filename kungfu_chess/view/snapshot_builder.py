@@ -6,6 +6,7 @@ from kungfu_chess.view.visual_position import VisualPositionCalculator
 from kungfu_chess.view.game_snapshot import (
     GameSnapshot,
     PieceSnapshot,
+    PromotionSnapshot,
 )
 
 
@@ -90,6 +91,8 @@ class SnapshotBuilder:
         if legal_moves is None:
             legal_moves = set()
 
+        pending_promotion = self._build_pending_promotion(game_state)
+
         return GameSnapshot(
             board_width=game_state.board.width,
             board_height=game_state.board.height,
@@ -98,4 +101,22 @@ class SnapshotBuilder:
             legal_moves=legal_moves,
             game_over=game_state.game_over,
             winner=game_state.winner,
+            pending_promotion=pending_promotion,
+        )
+
+    @staticmethod
+    def _build_pending_promotion(game_state: GameState) -> PromotionSnapshot | None:
+        pending = game_state.pending_pawn_promotion
+        if pending is None:
+            return None
+
+        piece = game_state.board.get_piece_by_id(pending.piece_id)
+        if piece is None:
+            return None
+
+        return PromotionSnapshot(
+            piece_id=pending.piece_id,
+            position=piece.cell,
+            color=piece.color,
+            allowed_kinds=pending.allowed_kinds,
         )

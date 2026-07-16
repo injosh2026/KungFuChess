@@ -2,6 +2,7 @@ from typing import Callable
 
 from img import Img
 from kungfu_chess.model.position import Position
+from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot
@@ -39,6 +40,7 @@ class GraphicalRenderer(Renderer):
         cell_size: int,
         frame_provider: Callable[[PieceSnapshot], Img],
         state_progress_overlay: StateProgressOverlay,
+        promotion_picker_overlay: PromotionPickerOverlay,
         board_offset: tuple[int, int] = NO_OFFSET,
     ):
         """
@@ -67,6 +69,7 @@ class GraphicalRenderer(Renderer):
         self._cell_size = cell_size
         self._frame_provider = frame_provider
         self._state_progress_overlay = state_progress_overlay
+        self._promotion_picker_overlay = promotion_picker_overlay
         self._board_offset = board_offset
 
     def render(self, snapshot: GameSnapshot) -> Img:
@@ -83,6 +86,9 @@ class GraphicalRenderer(Renderer):
 
         if snapshot.game_over:
             self._draw_game_over(canvas)
+
+        if snapshot.pending_promotion is not None:
+            self._promotion_picker_overlay.draw(canvas, snapshot.pending_promotion)
 
         return canvas
 

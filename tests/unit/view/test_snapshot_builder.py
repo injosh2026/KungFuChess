@@ -6,6 +6,8 @@ from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
 from kungfu_chess.model.piece_state import PieceState
 from kungfu_chess.realtime.motion import Motion
+from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
+from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
 
@@ -251,3 +253,28 @@ def test_builder_sets_visual_position_for_multiple_motions():
     assert visual_by_id[1] is not None
     assert visual_by_id[2] is not None
     assert visual_by_id[1] != visual_by_id[2]
+
+
+def test_builder_includes_pending_promotion_in_snapshot():
+    state = create_game_state()
+    piece = state.board.pieces_by_id[1]
+    state.pending_pawn_promotion = PendingPawnPromotion(
+        piece_id=piece.id,
+        allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
+    )
+
+    snapshot = SnapshotBuilder().build(state)
+
+    assert snapshot.pending_promotion is not None
+    assert snapshot.pending_promotion.piece_id == piece.id
+    assert snapshot.pending_promotion.position == piece.cell
+    assert snapshot.pending_promotion.color == piece.color
+    assert snapshot.pending_promotion.allowed_kinds == ChessPawnEndHandler.PROMOTION_KINDS
+
+
+def test_builder_leaves_pending_promotion_none_without_pending_state():
+    state = create_game_state()
+
+    snapshot = SnapshotBuilder().build(state)
+
+    assert snapshot.pending_promotion is None

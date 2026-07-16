@@ -23,6 +23,20 @@ class PieceSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class PromotionSnapshot:
+    """
+    Immutable promotion choice data for rendering and input routing.
+
+    Built from pending pawn promotion state without exposing GameState.
+    """
+
+    piece_id: int
+    position: Position
+    color: Color
+    allowed_kinds: frozenset[PieceKind]
+
+
+@dataclass(frozen=True, slots=True)
 class GameSnapshot:
     """
     Immutable representation of the complete game state
@@ -38,3 +52,4 @@ class GameSnapshot:
     legal_moves: set[Position]
     game_over: bool
     winner: Color | None = None
+    pending_promotion: PromotionSnapshot | None = None

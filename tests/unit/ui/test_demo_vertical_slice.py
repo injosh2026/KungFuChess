@@ -2,6 +2,7 @@ import examples.demo_ui as demo
 from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
+from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 
@@ -48,6 +49,7 @@ def test_renderer_draws_every_piece_from_snapshot():
         demo.CELL_SIZE,
         provider,
         FakeStateProgressOverlay(),
+        PromotionPickerOverlay(800, 800),
     ).render(snapshot)
 
     assert len(requested) == EXPECTED_PIECE_COUNT
@@ -62,7 +64,11 @@ def test_full_board_renders_with_bundled_assets():
     )
     provider = AnimationProvider(library, AnimationClock())
     renderer = GraphicalRenderer(
-        library, demo.CELL_SIZE, provider.frame_for, StateProgressOverlay()
+        library,
+        demo.CELL_SIZE,
+        provider.frame_for,
+        StateProgressOverlay(),
+        PromotionPickerOverlay(800, 800),
     )
 
     canvas = renderer.render(demo.build_snapshot())

@@ -28,6 +28,7 @@ from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
+from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
@@ -61,7 +62,11 @@ def main() -> None:
     clock = AnimationClock()
     provider = AnimationProvider(library, clock)
     renderer = GraphicalRenderer(
-        library, CELL_SIZE, provider.frame_for, StateProgressOverlay()
+        library,
+        CELL_SIZE,
+        provider.frame_for,
+        StateProgressOverlay(),
+        PromotionPickerOverlay(CELL_SIZE * 8, CELL_SIZE * 8),
     )
 
     snapshot = build_snapshot()

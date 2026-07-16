@@ -12,12 +12,14 @@ from kungfu_chess.config.demo_config import (
     STARTING_BOARD,
 )
 from kungfu_chess.engine.game_factory import GameFactory
+from kungfu_chess.input.click_router import ClickRouter
 from kungfu_chess.input.mouse_input import MouseInput
 from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.ui.game_app import GameApp
 from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
+from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import BOARD_CELLS_PER_SIDE, SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
@@ -57,11 +59,13 @@ def build_app(image) -> GameApp:
     )
     clock = AnimationClock()
     provider = AnimationProvider(library, clock)
+    promotion_picker = PromotionPickerOverlay(*WINDOW_SIZE)
     renderer = GraphicalRenderer(
         library,
         DISPLAY_CELL_SIZE,
         provider.frame_for,
         StateProgressOverlay(),
+        promotion_picker,
         BOARD_OFFSET,
     )
     visual_position_calculator = VisualPositionCalculator(DISPLAY_CELL_SIZE)
@@ -73,10 +77,15 @@ def build_app(image) -> GameApp:
 
     image.open_window()
 
-    # MouseInput requires an opened window to register callbacks. image.open_window()
-    mouse_input = MouseInput(
-        image, lambda x, y: controller.handle_click(*to_model_coords(x, y))
+    click_router = ClickRouter(
+        controller,
+        promotion_picker,
+        lambda: game_engine.game_state.pending_pawn_promotion,
+        lambda x, y: controller.handle_click(*to_model_coords(x, y)),
     )
+
+    # MouseInput requires an opened window to register callbacks. image.open_window()
+    mouse_input = MouseInput(image, click_router)
 
     return GameApp(
         game_engine,
