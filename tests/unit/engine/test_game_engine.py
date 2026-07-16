@@ -13,6 +13,7 @@ from kungfu_chess.realtime.movement_duration import MovementDurationCalculator
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.auto_promote_queen_handler import AutoPromoteQueenHandler
+from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.move_validation import MoveValidation
 
 
@@ -1179,6 +1180,141 @@ def test_pawn_promotion_sets_queen_kind_after_completion():
     assert pawn.kind == PieceKind.QUEEN
     assert pawn.has_moved is True
     assert state.board.get_piece_by_position(Position(0, 3)) is pawn
+
+
+def create_promotion_engine(state, pawn, handler):
+    return GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+        pawn_end_handler=handler,
+    )
+
+
+def test_pawn_reaching_end_with_chess_handler_does_not_auto_promote():
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(1, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(1, 3), Position(0, 3), duration_ms=1000)
+    )
+    engine.wait(1000)
+
+    assert pawn.kind == PieceKind.PAWN
+    assert pawn.has_moved is True
+
+
+def test_pawn_reaching_end_sets_pending_promotion_state():
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(1, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(1, 3), Position(0, 3), duration_ms=1000)
+    )
+    engine.wait(1000)
+
+    assert state.pending_pawn_promotion is not None
+    assert state.pending_pawn_promotion.piece_id == pawn.id
+    assert state.pending_pawn_promotion.allowed_kinds == ChessPawnEndHandler.PROMOTION_KINDS
+
+
+def test_submit_promotion_choice_queen_changes_kind():
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(0, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+
+    from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+
+    state.pending_pawn_promotion = PendingPawnPromotion(
+        piece_id=pawn.id,
+        allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
+    )
+
+    result = engine.submit_pawn_promotion_choice(pawn.id, PieceKind.QUEEN)
+
+    assert result.is_accepted is True
+    assert pawn.kind == PieceKind.QUEEN
+    assert state.pending_pawn_promotion is None
+
+
+def test_submit_promotion_choice_knight_changes_kind():
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(0, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+
+    from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+
+    state.pending_pawn_promotion = PendingPawnPromotion(
+        piece_id=pawn.id,
+        allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
+    )
+
+    result = engine.submit_pawn_promotion_choice(pawn.id, PieceKind.KNIGHT)
+
+    assert result.is_accepted is True
+    assert pawn.kind == PieceKind.KNIGHT
+    assert state.pending_pawn_promotion is None
+
+
+def test_submit_invalid_promotion_choice_is_rejected():
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(0, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+
+    from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+
+    state.pending_pawn_promotion = PendingPawnPromotion(
+        piece_id=pawn.id,
+        allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
+    )
+
+    result = engine.submit_pawn_promotion_choice(pawn.id, PieceKind.PAWN)
+
+    assert result.is_accepted is False
+    assert result.reason == "invalid_promotion_choice"
+    assert pawn.kind == PieceKind.PAWN
+    assert state.pending_pawn_promotion is not None
 
 
 def test_chase_escaping_piece_completes_before_pursuer_arrival():

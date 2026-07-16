@@ -23,11 +23,17 @@ from kungfu_chess.realtime.motion_kinematics import entry_time_ms
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.pawn_end_handler import PawnEndHandler
+from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 from kungfu_chess.rules.rule_engine import RuleEngine
 
 MAX_PASS_THROUGH_STEPS = 16
 PIECE_IN_COOLDOWN = "piece_in_cooldown"
 PIECE_IN_MOTION = "piece_in_motion"
+PENDING_PAWN_PROMOTION = "pending_pawn_promotion"
+NO_PENDING_PAWN_PROMOTION = "no_pending_pawn_promotion"
+WRONG_PROMOTION_PIECE = "wrong_promotion_piece"
+INVALID_PROMOTION_CHOICE = "invalid_promotion_choice"
+PROMOTION_PIECE_NOT_FOUND = "promotion_piece_not_found"
 
 
 class GameEngine:
@@ -69,6 +75,9 @@ class GameEngine:
 
         if self.game_state.game_over:
             return MoveResult(False, "game_over")
+
+        if self.game_state.pending_pawn_promotion is not None:
+            return MoveResult(False, PENDING_PAWN_PROMOTION)
 
         validation = self.rule_engine.validate_move(
             self.game_state.board, source, destination
@@ -186,6 +195,33 @@ class GameEngine:
             position,
         )
 
+    def submit_pawn_promotion_choice(
+        self,
+        piece_id: int,
+        chosen_kind: PieceKind,
+    ) -> MoveResult:
+        pending = self.game_state.pending_pawn_promotion
+
+        if pending is None:
+            return MoveResult(False, NO_PENDING_PAWN_PROMOTION)
+
+        if pending.piece_id != piece_id:
+            return MoveResult(False, WRONG_PROMOTION_PIECE)
+
+        if chosen_kind not in pending.allowed_kinds:
+            return MoveResult(False, INVALID_PROMOTION_CHOICE)
+
+        piece = self.game_state.board.get_piece_by_id(piece_id)
+        if piece is None:
+            return MoveResult(False, PROMOTION_PIECE_NOT_FOUND)
+
+        piece.kind = chosen_kind
+        piece.state = PieceState.IDLE
+        self.game_state.pending_pawn_promotion = None
+        self._transition_piece(piece)
+
+        return MoveResult(True, "ok")
+
     @staticmethod
     def _build_initial_occupied_cells(
         board: Board,
@@ -275,8 +311,9 @@ class GameEngine:
         piece = self.game_state.board.pieces_by_id.get(motion.piece_id)
         if piece is not None:
             piece.has_moved = True
-            self._apply_pawn_end_outcome(piece, arrival_cell)
-            self._transition_piece(piece)
+            blocks_transition = self._apply_pawn_end_outcome(piece, arrival_cell)
+            if not blocks_transition:
+                self._transition_piece(piece)
             self._set_piece_occupied_cell(
                 occupied_cells,
                 piece.id,
@@ -285,9 +322,9 @@ class GameEngine:
                 STATIONARY_ENTRY_TIME_MS,
             )
 
-    def _apply_pawn_end_outcome(self, piece: Piece, landing_cell: Position) -> None:
+    def _apply_pawn_end_outcome(self, piece: Piece, landing_cell: Position) -> bool:
         if self._pawn_end_handler is None:
-            return
+            return False
 
         outcome = self._pawn_end_handler.resolve(
             piece,
@@ -295,11 +332,19 @@ class GameEngine:
             self.game_state.board,
         )
 
+        if outcome.pending_choice_kinds is not None:
+            self.game_state.pending_pawn_promotion = PendingPawnPromotion(
+                piece_id=piece.id,
+                allowed_kinds=outcome.pending_choice_kinds,
+            )
+            return outcome.blocks_state_transition
+
         if outcome.new_kind is None:
-            return
+            return False
 
         piece.kind = outcome.new_kind
         piece.state = PieceState.IDLE
+        return outcome.blocks_state_transition
 
     @staticmethod
     def _clear_piece_from_occupied_cells(

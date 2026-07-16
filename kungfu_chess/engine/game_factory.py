@@ -15,7 +15,7 @@ from kungfu_chess.rules.rule_engine import RuleEngine
 from kungfu_chess.rules.bishop_rule import BishopRule
 from kungfu_chess.rules.king_rule import KingRule
 from kungfu_chess.rules.knight_rule import KnightRule
-from kungfu_chess.rules.auto_promote_queen_handler import AutoPromoteQueenHandler
+from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.pawn_rule import PawnRule
 from kungfu_chess.rules.queen_rule import QueenRule
 from kungfu_chess.rules.rook_rule import RookRule
@@ -85,7 +85,7 @@ class GameFactory:
             config_repository,
             state_timer,
             collision_resolver,
-            AutoPromoteQueenHandler(),
+            ChessPawnEndHandler(),
         )
 
         board_mapper = BoardMapper(GameFactory.CELL_SIZE)
