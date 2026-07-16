@@ -1,4 +1,5 @@
 from kungfu_chess.input.controller import Controller
+from kungfu_chess.input.promote_pawn_command import PromotePawnCommand
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.piece import Piece
 from kungfu_chess.model.piece_color import Color
@@ -20,6 +21,7 @@ class FakeGameEngine:
     def __init__(self, in_cooldown=False):
         self.calls = []
         self.legal_moves_calls = []
+        self.promotion_calls = []
         self.in_cooldown = in_cooldown
 
     def request_move(self, source, destination):
@@ -32,6 +34,10 @@ class FakeGameEngine:
     def get_legal_moves(self, position):
         self.legal_moves_calls.append(position)
         return {Position(0, 1)}
+
+    def submit_pawn_promotion_choice(self, piece_id, chosen_kind):
+        self.promotion_calls.append((piece_id, chosen_kind))
+        return "promotion_result"
 
 
 def create_controller():
@@ -161,3 +167,23 @@ def test_legal_moves_use_rule_engine_when_piece_is_not_in_cooldown():
 
     assert controller.legal_moves == {Position(0, 1)}
     assert engine.legal_moves_calls == [Position(0, 0)]
+
+
+def test_handle_promotion_choice_forwards_queen_to_engine():
+    controller, engine = create_controller()
+
+    command = PromotePawnCommand(piece_id=1, chosen_kind=PieceKind.QUEEN)
+    result = controller.handle_promotion_choice(command)
+
+    assert result == "promotion_result"
+    assert engine.promotion_calls == [(1, PieceKind.QUEEN)]
+
+
+def test_handle_promotion_choice_forwards_knight_to_engine():
+    controller, engine = create_controller()
+
+    command = PromotePawnCommand(piece_id=3, chosen_kind=PieceKind.KNIGHT)
+    result = controller.handle_promotion_choice(command)
+
+    assert result == "promotion_result"
+    assert engine.promotion_calls == [(3, PieceKind.KNIGHT)]

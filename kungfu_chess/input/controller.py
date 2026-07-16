@@ -1,5 +1,6 @@
 from kungfu_chess.engine.game_engine import GameEngine
 from kungfu_chess.input.board_mapper import BoardMapper
+from kungfu_chess.input.promote_pawn_command import PromotePawnCommand
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.position import Position
 
@@ -98,3 +99,19 @@ class Controller:
         self._selected_position = None
 
         return self.game_engine.request_move(source, position)
+
+    def handle_promotion_choice(self, command: PromotePawnCommand):
+        """
+        Forwards a pawn promotion choice to the game engine.
+
+        Args:
+            command:
+                Promotion choice data from input.
+
+        Returns:
+            MoveResult from the game engine.
+        """
+        return self.game_engine.submit_pawn_promotion_choice(
+            command.piece_id,
+            command.chosen_kind,
+        )
