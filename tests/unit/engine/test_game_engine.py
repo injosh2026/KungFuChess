@@ -9,6 +9,7 @@ from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
 from kungfu_chess.realtime.motion import Motion
+from kungfu_chess.realtime.movement_duration import MovementDurationCalculator
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.move_validation import MoveValidation
@@ -753,6 +754,39 @@ def create_crossing_engine():
     return engine, state, rook, queen
 
 
+CELL_MS = MovementDurationCalculator.MOVE_DURATION_PER_CELL_MS
+
+
+def create_chase_engine(pursuer_id=1, escaper_id=2):
+    board = Board(8, 8)
+    pursuer = Piece(
+        id=pursuer_id,
+        color=Color.WHITE,
+        kind=PieceKind.QUEEN,
+        cell=square("a1"),
+    )
+    escaper = Piece(
+        id=escaper_id,
+        color=Color.BLACK,
+        kind=PieceKind.PAWN,
+        cell=square("a4"),
+    )
+    board.add_piece(pursuer)
+    board.add_piece(escaper)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+    return engine, state, pursuer, escaper
+
+
 def test_mid_flight_enemy_capture_removes_victim_and_cancels_motion():
     engine, state, rook, queen = create_crossing_engine()
 
@@ -1079,6 +1113,91 @@ def test_friendly_arrival_bounce_captures_enemy_on_path():
     assert captured == [enemy]
     assert state.board.get_piece_by_position(square("a4")).id == 1
     assert state.board.get_piece_by_id(2) is None
+
+
+def test_chase_escaping_piece_completes_before_pursuer_arrival():
+    engine, state, pursuer, escaper = create_chase_engine()
+
+    engine.realtime_arbiter.start_motion(
+        Motion(
+            pursuer.id,
+            square("a1"),
+            square("a4"),
+            duration_ms=3 * CELL_MS,
+        )
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(
+            escaper.id,
+            square("a4"),
+            square("a5"),
+            duration_ms=CELL_MS,
+        )
+    )
+
+    captured = engine.wait(3 * CELL_MS)
+
+    assert captured == []
+    assert state.board.get_piece_by_id(escaper.id) is not None
+    assert state.board.get_piece_by_position(square("a5")).id == escaper.id
+    assert state.board.get_piece_by_position(square("a4")).id == pursuer.id
+
+
+def test_chase_pursuer_captures_when_arriving_before_escape_completes():
+    engine, state, pursuer, escaper = create_chase_engine()
+
+    engine.realtime_arbiter.start_motion(
+        Motion(
+            pursuer.id,
+            square("a1"),
+            square("a4"),
+            duration_ms=3 * CELL_MS,
+        )
+    )
+    engine.wait(2500)
+    engine.realtime_arbiter.start_motion(
+        Motion(
+            escaper.id,
+            square("a4"),
+            square("a5"),
+            duration_ms=CELL_MS,
+        )
+    )
+
+    captured = engine.wait(500)
+
+    assert captured == [escaper]
+    assert state.board.get_piece_by_id(escaper.id) is None
+    assert state.board.get_piece_by_position(square("a4")).id == pursuer.id
+    assert state.board.get_piece_by_position(square("a5")) is None
+
+
+def test_chase_same_time_completion_uses_piece_id_priority():
+    engine, state, pursuer, escaper = create_chase_engine()
+
+    engine.realtime_arbiter.start_motion(
+        Motion(
+            pursuer.id,
+            square("a1"),
+            square("a4"),
+            duration_ms=3 * CELL_MS,
+        )
+    )
+    engine.wait(2 * CELL_MS)
+    engine.realtime_arbiter.start_motion(
+        Motion(
+            escaper.id,
+            square("a4"),
+            square("a5"),
+            duration_ms=CELL_MS,
+        )
+    )
+
+    captured = engine.wait(CELL_MS)
+
+    assert captured == [escaper]
+    assert state.board.get_piece_by_id(escaper.id) is None
+    assert state.board.get_piece_by_position(square("a4")).id == pursuer.id
 
 
 def test_occupied_cells_keeps_single_entry_per_piece():
