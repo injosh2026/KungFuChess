@@ -82,6 +82,19 @@ class RealTimeArbiter:
         self._active_motions[motion.piece_id] = motion
         return True
 
+    def cancel_motion(self, piece_id: int) -> Motion | None:
+        """
+        Removes an active motion for a piece.
+
+        Args:
+            piece_id:
+                Identifier of the piece whose motion should be cancelled.
+
+        Returns:
+            The removed motion if one was active, otherwise None.
+        """
+        return self._active_motions.pop(piece_id, None)
+
     def advance_time(self, milliseconds: int) -> list[Motion]:
         """
         Advances game time for all active motions.

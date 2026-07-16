@@ -1,12 +1,24 @@
 from kungfu_chess.config.piece_code import piece_code
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.engine.arrival_resolver import ArrivalResolver
+from kungfu_chess.engine.collision_decisions import (
+    STATIONARY_ENTRY_TIME_MS,
+    CellEntryEvent,
+    CellOccupant,
+    EntryOutcome,
+    MotionCompletionEvent,
+)
 from kungfu_chess.engine.collision_resolver import CollisionResolver
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.move_result import MoveResult
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
+from kungfu_chess.model.board import Board
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.piece import Piece
+from kungfu_chess.model.piece_kind import PieceKind
+from kungfu_chess.model.position import Position
+from kungfu_chess.realtime.motion import Motion
+from kungfu_chess.realtime.motion_kinematics import entry_time_ms
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.rule_engine import RuleEngine
@@ -98,28 +110,55 @@ class GameEngine:
         Completed motions are resolved when their duration expires.
         The board is updated only when motions arrive at their target.
         """
-        completed_motions = self.realtime_arbiter.advance_time(milliseconds)
-
         active_timers = frozenset(self._state_timer.active_piece_ids())
 
         captured_pieces = []
 
-        sorted_motions = self._collision_resolver.sort_arrivals(completed_motions)
+        active_motions = self.realtime_arbiter.active_motions()
+        occupied_cells = self._build_initial_occupied_cells(
+            self.game_state.board,
+            active_motions,
+        )
+        events = self._collision_resolver.schedule_timeline_events(
+            self.game_state.board,
+            active_motions,
+            within_ms=milliseconds,
+        )
 
-        for motion in sorted_motions:
-            self._collision_resolver.resolve_arrival(
-                motion,
-                self.game_state.board,
-            )
+        elapsed = 0
 
-            captured = self.arrival_resolver.resolve(motion)
+        for event in events:
+            step = event.time_from_wait_start_ms - elapsed
+            if step > 0:
+                self.realtime_arbiter.advance_time(step)
+                elapsed = event.time_from_wait_start_ms
 
-            if captured is not None:
-                captured_pieces.append(captured)
+            if isinstance(event, CellEntryEvent):
+                outcome = self._collision_resolver.resolve_entry_event(
+                    event,
+                    self.game_state.board,
+                    occupied_cells,
+                    active_motions=self.realtime_arbiter.active_motions(),
+                )
+                self._apply_entry_outcome(
+                    outcome,
+                    event,
+                    occupied_cells,
+                    captured_pieces,
+                )
+            elif isinstance(event, MotionCompletionEvent):
+                self._apply_motion_completion(
+                    event,
+                    occupied_cells,
+                    captured_pieces,
+                )
 
-            piece = self.game_state.board.pieces_by_id.get(motion.piece_id)
-            if piece is not None:
-                self._transition_piece(piece)
+        remaining = milliseconds - elapsed
+        if remaining > 0:
+            self.realtime_arbiter.advance_time(remaining)
+            elapsed += remaining
+
+        assert elapsed == milliseconds
 
         for piece_id in self._state_timer.advance(
             milliseconds,
@@ -141,6 +180,127 @@ class GameEngine:
         return self.rule_engine.legal_moves(
             self.game_state.board,
             position,
+        )
+
+    @staticmethod
+    def _build_initial_occupied_cells(
+        board: Board,
+        motions: tuple[Motion, ...],
+    ) -> dict[Position, CellOccupant]:
+        motion_starts = {motion.piece_id: motion.start for motion in motions}
+
+        occupied_cells: dict[Position, CellOccupant] = {}
+        for piece in board.pieces_by_id.values():
+            cell = motion_starts.get(piece.id, piece.cell)
+            occupied_cells[cell] = CellOccupant(
+                piece_id=piece.id,
+                color=piece.color,
+                entry_time_ms=STATIONARY_ENTRY_TIME_MS,
+            )
+
+        return occupied_cells
+
+    def _apply_entry_outcome(
+        self,
+        outcome: EntryOutcome,
+        event: CellEntryEvent,
+        occupied_cells: dict[Position, CellOccupant],
+        captured_pieces: list[Piece],
+    ) -> None:
+        if outcome.capture is not None:
+            victim = self.game_state.board.get_piece_by_id(
+                outcome.capture.victim_piece_id
+            )
+            if victim is not None:
+                self.game_state.board.remove_piece(victim.cell)
+                self.realtime_arbiter.cancel_motion(victim.id)
+                if victim.kind == PieceKind.KING:
+                    self.game_state.game_over = True
+                captured_pieces.append(victim)
+
+                for cell, occupant in list(occupied_cells.items()):
+                    if occupant.piece_id == victim.id:
+                        del occupied_cells[cell]
+
+        capturer = self.game_state.board.get_piece_by_id(event.piece_id)
+        if capturer is None:
+            return
+
+        self._set_piece_occupied_cell(
+            occupied_cells,
+            event.piece_id,
+            capturer.color,
+            event.cell,
+            entry_time_ms(event.path_index),
+        )
+
+    def _apply_motion_completion(
+        self,
+        event: MotionCompletionEvent,
+        occupied_cells: dict[Position, CellOccupant],
+        captured_pieces: list[Piece],
+    ) -> None:
+        if self.game_state.board.get_piece_by_id(event.piece_id) is None:
+            return
+
+        motion = self.realtime_arbiter.get_motion(event.piece_id)
+        if motion is None:
+            motion = event.motion
+        else:
+            self.realtime_arbiter.cancel_motion(event.piece_id)
+
+        arrival_outcome = self._collision_resolver.resolve_arrival(
+            motion,
+            self.game_state.board,
+        )
+
+        arrival_cell = (
+            arrival_outcome.arrival_cell
+            if arrival_outcome.arrival_cell is not None
+            else motion.target
+        )
+
+        captured = self.arrival_resolver.resolve(
+            motion,
+            arrival_cell=arrival_outcome.arrival_cell,
+        )
+
+        if captured is not None:
+            captured_pieces.append(captured)
+
+        piece = self.game_state.board.pieces_by_id.get(motion.piece_id)
+        if piece is not None:
+            self._transition_piece(piece)
+            self._set_piece_occupied_cell(
+                occupied_cells,
+                piece.id,
+                piece.color,
+                arrival_cell,
+                STATIONARY_ENTRY_TIME_MS,
+            )
+
+    @staticmethod
+    def _clear_piece_from_occupied_cells(
+        occupied_cells: dict[Position, CellOccupant],
+        piece_id: int,
+    ) -> None:
+        for cell, occupant in list(occupied_cells.items()):
+            if occupant.piece_id == piece_id:
+                del occupied_cells[cell]
+
+    @staticmethod
+    def _set_piece_occupied_cell(
+        occupied_cells: dict[Position, CellOccupant],
+        piece_id: int,
+        color,
+        cell: Position,
+        entry_time_ms: int,
+    ) -> None:
+        GameEngine._clear_piece_from_occupied_cells(occupied_cells, piece_id)
+        occupied_cells[cell] = CellOccupant(
+            piece_id=piece_id,
+            color=color,
+            entry_time_ms=entry_time_ms,
         )
 
     def _transition_piece(self, piece: Piece) -> None:

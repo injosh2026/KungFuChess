@@ -111,3 +111,51 @@ def test_advance_time_without_motion_does_nothing():
 
     assert completed == []
     assert arbiter.has_any_motion() is False
+
+
+def test_cancel_motion_removes_existing_motion():
+    arbiter = RealTimeArbiter()
+    motion = create_motion()
+
+    arbiter.start_motion(motion)
+
+    removed = arbiter.cancel_motion(1)
+
+    assert removed == motion
+    assert arbiter.has_motion(1) is False
+    assert arbiter.active_motions() == ()
+
+
+def test_cancel_motion_returns_none_for_unknown_piece_id():
+    arbiter = RealTimeArbiter()
+
+    removed = arbiter.cancel_motion(99)
+
+    assert removed is None
+
+
+def test_cancelled_motion_is_not_completed_by_advance_time():
+    arbiter = RealTimeArbiter()
+    motion = create_motion()
+
+    arbiter.start_motion(motion)
+    arbiter.cancel_motion(1)
+
+    completed = arbiter.advance_time(1000)
+
+    assert completed == []
+    assert arbiter.has_any_motion() is False
+
+
+def test_start_motion_works_after_cancel():
+    arbiter = RealTimeArbiter()
+    first = create_motion()
+    second = create_motion(target_col=4)
+
+    arbiter.start_motion(first)
+    arbiter.cancel_motion(1)
+
+    result = arbiter.start_motion(second)
+
+    assert result is True
+    assert arbiter.get_motion(1) == second

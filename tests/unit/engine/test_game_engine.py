@@ -30,6 +30,9 @@ class FakeArbiter:
     def __init__(self):
         self.called_with = None
 
+    def active_motions(self):
+        return ()
+
     def advance_time(self, milliseconds):
         self.called_with = milliseconds
         return []
@@ -714,6 +717,139 @@ def test_get_legal_moves_unchanged_during_cooldown(tmp_path):
     assert engine.is_piece_in_cooldown(piece.id) is True
 
 
+def square(name: str) -> Position:
+    file_index = ord(name[0]) - ord("a")
+    rank_index = int(name[1]) - 1
+    return Position(rank_index, file_index)
+
+
+def create_crossing_engine():
+    board = Board(8, 8)
+    rook = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("e1"),
+    )
+    queen = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.QUEEN,
+        cell=square("a4"),
+    )
+    board.add_piece(rook)
+    board.add_piece(queen)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+    return engine, state, rook, queen
+
+
+def test_mid_flight_enemy_capture_removes_victim_and_cancels_motion():
+    engine, state, rook, queen = create_crossing_engine()
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, square("e1"), square("e8"), duration_ms=7000)
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(2, square("a4"), square("h4"), duration_ms=7000)
+    )
+
+    captured = engine.wait(5000)
+
+    assert captured == [rook]
+    assert state.board.get_piece_by_id(1) is None
+    assert engine.realtime_arbiter.has_motion(1) is False
+    assert engine.realtime_arbiter.has_motion(2) is True
+
+
+def test_mid_flight_victim_never_reaches_target():
+    engine, state, rook, queen = create_crossing_engine()
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, square("e1"), square("e8"), duration_ms=7000)
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(2, square("a4"), square("h4"), duration_ms=7000)
+    )
+
+    engine.wait(5000)
+    engine.wait(3000)
+
+    assert state.board.get_piece_by_id(1) is None
+    assert state.board.get_piece_by_position(square("e8")) is None
+    assert state.board.get_piece_by_id(2) is not None
+
+
+def test_mid_flight_king_capture_sets_game_over():
+    board = Board(8, 8)
+    attacker = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("e1"),
+    )
+    king = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.KING,
+        cell=square("d4"),
+    )
+    board.add_piece(attacker)
+    board.add_piece(king)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, square("e1"), square("e8"), duration_ms=7000)
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(2, square("d4"), square("h4"), duration_ms=4000)
+    )
+
+    captured = engine.wait(5000)
+
+    assert captured == [king]
+    assert state.game_over is True
+    assert engine.realtime_arbiter.has_motion(2) is False
+
+
+def test_standing_enemy_capture_regression_after_event_driven_wait():
+    engine, state, _ = create_engine(MoveValidation(True, "ok"))
+
+    enemy = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 3),
+    )
+    state.board.add_piece(enemy)
+
+    engine.request_move(Position(0, 0), Position(0, 3))
+    captured = engine.wait(1000)
+
+    assert captured == [enemy]
+    assert state.board.get_piece_by_position(Position(0, 3)).id == 1
+    assert state.board.get_piece_by_id(2) is None
+
+
 def test_other_piece_can_move_while_piece_is_in_cooldown(tmp_path):
     write_piece_defaults(tmp_path)
     write_state_config(tmp_path, PIECE_CODE, "idle", "idle", speed=0.0)
@@ -762,3 +898,314 @@ def test_other_piece_can_move_while_piece_is_in_cooldown(tmp_path):
     result = engine.request_move(Position(2, 0), Position(2, 1))
 
     assert result.is_accepted is True
+
+
+def create_friendly_convergence_engine():
+    board = Board(8, 8)
+    first = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0),
+    )
+    second = Piece(
+        id=2,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 5),
+    )
+    board.add_piece(first)
+    board.add_piece(second)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+    return engine, state, first, second
+
+
+def test_friendly_convergence_keeps_first_piece_at_target():
+    engine, state, first, second = create_friendly_convergence_engine()
+
+    target = Position(0, 3)
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(0, 0), target, duration_ms=500)
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(2, Position(0, 5), target, duration_ms=1000)
+    )
+
+    captured = engine.wait(1000)
+
+    assert captured == []
+    assert state.board.get_piece_by_id(first.id) is not None
+    assert state.board.get_piece_by_position(target).id == first.id
+    assert state.board.get_piece_by_id(second.id) is not None
+    assert state.board.get_piece_by_position(Position(0, 4)).id == second.id
+
+
+def test_friendly_arrival_bounce_one_cell():
+    board = Board(8, 8)
+    mover = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("a1"),
+    )
+    blocker = Piece(
+        id=2,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("a4"),
+    )
+    board.add_piece(mover)
+    board.add_piece(blocker)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, square("a1"), square("a4"), duration_ms=3000)
+    )
+
+    captured = engine.wait(3000)
+
+    assert captured == []
+    assert state.board.get_piece_by_position(square("a3")).id == 1
+    assert state.board.get_piece_by_position(square("a4")).id == 2
+    assert state.board.get_piece_by_position(square("a1")) is None
+
+
+def test_friendly_arrival_bounce_skips_friendly_chain():
+    board = Board(8, 8)
+    mover = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("a1"),
+    )
+    friendly_four = Piece(
+        id=2,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("a4"),
+    )
+    friendly_five = Piece(
+        id=3,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("a5"),
+    )
+    board.add_piece(mover)
+    board.add_piece(friendly_four)
+    board.add_piece(friendly_five)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, square("a1"), square("a5"), duration_ms=4000)
+    )
+
+    captured = engine.wait(4000)
+
+    assert captured == []
+    assert state.board.get_piece_by_position(square("a3")).id == 1
+
+
+def test_friendly_arrival_bounce_captures_enemy_on_path():
+    board = Board(8, 8)
+    mover = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("a1"),
+    )
+    enemy = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.ROOK,
+        cell=square("a4"),
+    )
+    friendly = Piece(
+        id=3,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("a5"),
+    )
+    board.add_piece(mover)
+    board.add_piece(enemy)
+    board.add_piece(friendly)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, square("a1"), square("a5"), duration_ms=4000)
+    )
+
+    captured = engine.wait(4000)
+
+    assert captured == [enemy]
+    assert state.board.get_piece_by_position(square("a4")).id == 1
+    assert state.board.get_piece_by_id(2) is None
+
+
+def test_occupied_cells_keeps_single_entry_per_piece():
+    from kungfu_chess.engine.collision_decisions import STATIONARY_ENTRY_TIME_MS
+
+    occupied_cells = {}
+    GameEngine._set_piece_occupied_cell(
+        occupied_cells,
+        1,
+        Color.WHITE,
+        Position(0, 0),
+        STATIONARY_ENTRY_TIME_MS,
+    )
+    GameEngine._set_piece_occupied_cell(
+        occupied_cells,
+        1,
+        Color.WHITE,
+        Position(0, 1),
+        1000,
+    )
+    GameEngine._set_piece_occupied_cell(
+        occupied_cells,
+        1,
+        Color.WHITE,
+        Position(0, 2),
+        2000,
+    )
+
+    piece_cells = [
+        cell for cell, occupant in occupied_cells.items() if occupant.piece_id == 1
+    ]
+
+    assert len(piece_cells) == 1
+    assert piece_cells[0] == Position(0, 2)
+
+
+def test_occupied_cells_invariant_during_mid_path_wait():
+    from kungfu_chess.engine.collision_decisions import CellEntryEvent
+
+    engine, state, rook, queen = create_crossing_engine()
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, square("e1"), square("e8"), duration_ms=7000)
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(2, square("a4"), square("h4"), duration_ms=7000)
+    )
+
+    occupied_cells = GameEngine._build_initial_occupied_cells(
+        state.board,
+        engine.realtime_arbiter.active_motions(),
+    )
+
+    events = engine._collision_resolver.schedule_timeline_events(
+        state.board,
+        engine.realtime_arbiter.active_motions(),
+        within_ms=3500,
+    )
+
+    captured_pieces = []
+    elapsed = 0
+    for event in events:
+        step = event.time_from_wait_start_ms - elapsed
+        if step > 0:
+            engine.realtime_arbiter.advance_time(step)
+            elapsed = event.time_from_wait_start_ms
+
+        if isinstance(event, CellEntryEvent):
+            outcome = engine._collision_resolver.resolve_entry_event(
+                event,
+                state.board,
+                occupied_cells,
+            )
+            engine._apply_entry_outcome(
+                outcome,
+                event,
+                occupied_cells,
+                captured_pieces,
+            )
+
+    for piece_id in (1, 2):
+        piece_cells = [
+            cell
+            for cell, occupant in occupied_cells.items()
+            if occupant.piece_id == piece_id
+        ]
+        assert len(piece_cells) == 1
+
+
+def test_head_on_same_file_captures_one_enemy():
+    board = Board(8, 8)
+    white_rook = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=square("e1"),
+    )
+    black_rook = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.ROOK,
+        cell=square("e8"),
+    )
+    board.add_piece(white_rook)
+    board.add_piece(black_rook)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, square("e1"), square("e8"), duration_ms=7000)
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(2, square("e8"), square("e1"), duration_ms=7000)
+    )
+
+    captured = engine.wait(5000)
+
+    assert len(captured) == 1
+    assert captured[0].id in {1, 2}
+    assert state.board.get_piece_by_id(captured[0].id) is None
+    assert state.board.get_piece_by_id(3 - captured[0].id) is not None

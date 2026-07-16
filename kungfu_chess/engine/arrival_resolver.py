@@ -1,5 +1,6 @@
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.piece_kind import PieceKind
+from kungfu_chess.model.position import Position
 from kungfu_chess.realtime.motion import Motion
 
 
@@ -23,12 +24,14 @@ class ArrivalResolver:
         """
         self.game_state = game_state
 
-    def resolve(self, motion: Motion):
+    def resolve(self, motion: Motion, *, arrival_cell: Position | None = None):
         """
         Applies a completed motion to the board.
 
-        The moving piece is placed on the target position.
-        If another piece occupies the target position, that piece
+        The moving piece is placed on the target position, or on
+        arrival_cell when a friendly-block bounce is resolved.
+
+        If another piece occupies the landing cell, that piece
         is removed and returned as the captured piece.
 
         Currently, capturing a king ends the game.
@@ -36,14 +39,19 @@ class ArrivalResolver:
         Args:
             motion:
                 Completed movement information.
+            arrival_cell:
+                Optional resolved landing cell. When None, motion.target
+                is used.
 
         Returns:
             The captured piece if a capture occurred,
             otherwise None.
         """
+        destination = arrival_cell if arrival_cell is not None else motion.target
+
         captured_piece = self.game_state.board.move_piece(
             motion.start,
-            motion.target
+            destination,
         )
 
         if captured_piece and captured_piece.kind == PieceKind.KING:
