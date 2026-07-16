@@ -12,6 +12,7 @@ from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.movement_duration import MovementDurationCalculator
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.realtime.state_timer import StateTimer
+from kungfu_chess.rules.auto_promote_queen_handler import AutoPromoteQueenHandler
 from kungfu_chess.rules.move_validation import MoveValidation
 
 
@@ -1145,6 +1146,39 @@ def test_motion_completion_sets_has_moved():
     engine.wait(1000)
 
     assert pawn.has_moved is True
+
+
+def test_pawn_promotion_sets_queen_kind_after_completion():
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(1, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+        pawn_end_handler=AutoPromoteQueenHandler(),
+    )
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(1, 3), Position(0, 3), duration_ms=1000)
+    )
+
+    engine.wait(1000)
+
+    assert pawn.kind == PieceKind.QUEEN
+    assert pawn.has_moved is True
+    assert state.board.get_piece_by_position(Position(0, 3)) is pawn
 
 
 def test_chase_escaping_piece_completes_before_pursuer_arrival():

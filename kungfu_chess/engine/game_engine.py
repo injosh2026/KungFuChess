@@ -16,11 +16,13 @@ from kungfu_chess.model.board import Board
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.piece import Piece
 from kungfu_chess.model.piece_kind import PieceKind
+from kungfu_chess.model.piece_state import PieceState
 from kungfu_chess.model.position import Position
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.motion_kinematics import entry_time_ms
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.realtime.state_timer import StateTimer
+from kungfu_chess.rules.pawn_end_handler import PawnEndHandler
 from kungfu_chess.rules.rule_engine import RuleEngine
 
 MAX_PASS_THROUGH_STEPS = 16
@@ -50,6 +52,7 @@ class GameEngine:
         config_repository: PieceConfigRepository,
         state_timer: StateTimer,
         collision_resolver: CollisionResolver | None = None,
+        pawn_end_handler: PawnEndHandler | None = None,
     ):
         self.game_state = game_state
         self.rule_engine = rule_engine
@@ -60,6 +63,7 @@ class GameEngine:
         self._config_repository = config_repository
         self._state_timer = state_timer
         self._collision_resolver = collision_resolver or CollisionResolver()
+        self._pawn_end_handler = pawn_end_handler
 
     def request_move(self, source, destination) -> MoveResult:
 
@@ -271,6 +275,7 @@ class GameEngine:
         piece = self.game_state.board.pieces_by_id.get(motion.piece_id)
         if piece is not None:
             piece.has_moved = True
+            self._apply_pawn_end_outcome(piece, arrival_cell)
             self._transition_piece(piece)
             self._set_piece_occupied_cell(
                 occupied_cells,
@@ -279,6 +284,22 @@ class GameEngine:
                 arrival_cell,
                 STATIONARY_ENTRY_TIME_MS,
             )
+
+    def _apply_pawn_end_outcome(self, piece: Piece, landing_cell: Position) -> None:
+        if self._pawn_end_handler is None:
+            return
+
+        outcome = self._pawn_end_handler.resolve(
+            piece,
+            landing_cell,
+            self.game_state.board,
+        )
+
+        if outcome.new_kind is None:
+            return
+
+        piece.kind = outcome.new_kind
+        piece.state = PieceState.IDLE
 
     @staticmethod
     def _clear_piece_from_occupied_cells(
