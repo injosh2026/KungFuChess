@@ -278,3 +278,18 @@ def test_builder_leaves_pending_promotion_none_without_pending_state():
     snapshot = SnapshotBuilder().build(state)
 
     assert snapshot.pending_promotion is None
+
+
+def test_builder_pending_promotion_snapshot_exposes_piece_id_and_allowed_kinds():
+    state = create_game_state()
+    piece = state.board.pieces_by_id[1]
+    allowed_kinds = frozenset({PieceKind.QUEEN, PieceKind.ROOK})
+    state.pending_pawn_promotion = PendingPawnPromotion(
+        piece_id=piece.id,
+        allowed_kinds=allowed_kinds,
+    )
+
+    snapshot = SnapshotBuilder().build(state)
+
+    assert snapshot.pending_promotion.piece_id == piece.id
+    assert snapshot.pending_promotion.allowed_kinds == allowed_kinds

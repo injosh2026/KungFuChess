@@ -1,12 +1,18 @@
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, StateConfig
-from kungfu_chess.engine.game_engine import GameEngine, PIECE_IN_COOLDOWN, PIECE_IN_MOTION
+from kungfu_chess.engine.game_engine import (
+    GameEngine,
+    PENDING_PAWN_PROMOTION,
+    PIECE_IN_COOLDOWN,
+    PIECE_IN_MOTION,
+)
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.piece import Piece
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
+from kungfu_chess.model.piece_state import PieceState
 from kungfu_chess.model.position import Position
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.movement_duration import MovementDurationCalculator
@@ -15,6 +21,9 @@ from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.auto_promote_queen_handler import AutoPromoteQueenHandler
 from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.move_validation import MoveValidation
+from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+
+import pytest
 
 
 class FakeRuleEngine:
@@ -74,6 +83,17 @@ class FakeStateTransitionResolver:
 
     def resolve(self, piece_code, current_state):
         return "idle"
+
+
+class TrackingStateTransitionResolver:
+
+    def __init__(self, next_state="idle"):
+        self.calls = []
+        self.next_state = next_state
+
+    def resolve(self, piece_code, current_state):
+        self.calls.append((piece_code, current_state))
+        return self.next_state
 
 
 class FakeStateTimer:
@@ -1182,17 +1202,68 @@ def test_pawn_promotion_sets_queen_kind_after_completion():
     assert state.board.get_piece_by_position(Position(0, 3)) is pawn
 
 
-def create_promotion_engine(state, pawn, handler):
+def create_promotion_engine(state, pawn, handler, state_transition_resolver=None):
     return GameEngine(
         state,
         FakeRuleEngine(MoveValidation(True, "ok")),
         RealTimeArbiter(),
         FakeMotionFactory(),
-        FakeStateTransitionResolver(),
+        state_transition_resolver or FakeStateTransitionResolver(),
         FakeConfigRepository(),
         FakeStateTimer(),
         pawn_end_handler=handler,
     )
+
+
+def land_white_pawn_on_promotion_rank(state_transition_resolver=None):
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(1, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+    transition_resolver = (
+        state_transition_resolver or TrackingStateTransitionResolver()
+    )
+    engine = create_promotion_engine(
+        state,
+        pawn,
+        ChessPawnEndHandler(),
+        transition_resolver,
+    )
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(1, 3), Position(0, 3), duration_ms=1000)
+    )
+    engine.wait(1000)
+    return engine, state, pawn, transition_resolver
+
+
+def board_with_pending_promotion():
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(0, 3),
+    )
+    rook = Piece(
+        id=2,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(4, 4),
+    )
+    board.add_piece(pawn)
+    board.add_piece(rook)
+    state = GameState(board)
+    state.pending_pawn_promotion = PendingPawnPromotion(
+        piece_id=pawn.id,
+        allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
+    )
+    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    return engine, state, pawn, rook
 
 
 def test_pawn_reaching_end_with_chess_handler_does_not_auto_promote():
@@ -1238,6 +1309,75 @@ def test_pawn_reaching_end_sets_pending_promotion_state():
     assert state.pending_pawn_promotion.allowed_kinds == ChessPawnEndHandler.PROMOTION_KINDS
 
 
+def test_pawn_landing_with_pending_keeps_pawn_kind_and_defers_transition():
+    _, state, pawn, transition_resolver = land_white_pawn_on_promotion_rank()
+
+    assert pawn.kind == PieceKind.PAWN
+    assert state.pending_pawn_promotion is not None
+    assert state.pending_pawn_promotion.piece_id == pawn.id
+    assert transition_resolver.calls == []
+
+
+def test_request_move_for_other_piece_rejected_while_promotion_pending():
+    engine, _, pawn, rook = board_with_pending_promotion()
+
+    result = engine.request_move(rook.cell, Position(4, 5))
+
+    assert result.is_accepted is False
+    assert result.reason == PENDING_PAWN_PROMOTION
+
+
+def test_request_move_for_promoting_pawn_rejected_while_pending():
+    engine, _, pawn, _ = board_with_pending_promotion()
+
+    result = engine.request_move(pawn.cell, Position(0, 4))
+
+    assert result.is_accepted is False
+    assert result.reason == PENDING_PAWN_PROMOTION
+
+
+@pytest.mark.parametrize(
+    "chosen_kind",
+    [
+        PieceKind.QUEEN,
+        PieceKind.ROOK,
+        PieceKind.BISHOP,
+        PieceKind.KNIGHT,
+    ],
+)
+def test_submit_promotion_choice_applies_kind_clears_pending_and_transitions(
+    chosen_kind,
+):
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(0, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+    transition_resolver = TrackingStateTransitionResolver()
+    engine = create_promotion_engine(
+        state,
+        pawn,
+        ChessPawnEndHandler(),
+        transition_resolver,
+    )
+    state.pending_pawn_promotion = PendingPawnPromotion(
+        piece_id=pawn.id,
+        allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
+    )
+
+    result = engine.submit_pawn_promotion_choice(pawn.id, chosen_kind)
+
+    assert result.is_accepted is True
+    assert pawn.kind == chosen_kind
+    assert state.pending_pawn_promotion is None
+    assert transition_resolver.calls
+    assert pawn.state == PieceState.IDLE
+
+
 def test_submit_promotion_choice_queen_changes_kind():
     board = Board(8, 8)
     pawn = Piece(
@@ -1249,8 +1389,6 @@ def test_submit_promotion_choice_queen_changes_kind():
     board.add_piece(pawn)
     state = GameState(board)
     engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
-
-    from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 
     state.pending_pawn_promotion = PendingPawnPromotion(
         piece_id=pawn.id,
@@ -1276,8 +1414,6 @@ def test_submit_promotion_choice_knight_changes_kind():
     state = GameState(board)
     engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
 
-    from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
-
     state.pending_pawn_promotion = PendingPawnPromotion(
         piece_id=pawn.id,
         allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
@@ -1301,8 +1437,6 @@ def test_submit_invalid_promotion_choice_is_rejected():
     board.add_piece(pawn)
     state = GameState(board)
     engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
-
-    from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 
     state.pending_pawn_promotion = PendingPawnPromotion(
         piece_id=pawn.id,
