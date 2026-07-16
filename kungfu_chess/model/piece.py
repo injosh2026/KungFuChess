@@ -21,3 +21,4 @@ class Piece:
     kind: PieceKind
     cell: Position
     state: str = PieceState.IDLE
+    has_moved: bool = False

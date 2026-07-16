@@ -13,6 +13,7 @@ def test_piece_creation():
     assert piece.kind == PieceKind.KING
     assert piece.cell == Position(0, 4)
     assert piece.state == PieceState.IDLE
+    assert piece.has_moved is False
 
 
 def test_piece_state_can_change():

@@ -1115,6 +1115,38 @@ def test_friendly_arrival_bounce_captures_enemy_on_path():
     assert state.board.get_piece_by_id(2) is None
 
 
+def test_motion_completion_sets_has_moved():
+    board = Board(8, 8)
+    pawn = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.PAWN,
+        cell=Position(6, 3),
+    )
+    board.add_piece(pawn)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+    )
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(6, 3), Position(5, 3), duration_ms=1000)
+    )
+
+    assert pawn.has_moved is False
+
+    engine.wait(1000)
+
+    assert pawn.has_moved is True
+
+
 def test_chase_escaping_piece_completes_before_pursuer_arrival():
     engine, state, pursuer, escaper = create_chase_engine()
 

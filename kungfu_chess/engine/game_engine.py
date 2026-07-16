@@ -270,6 +270,7 @@ class GameEngine:
 
         piece = self.game_state.board.pieces_by_id.get(motion.piece_id)
         if piece is not None:
+            piece.has_moved = True
             self._transition_piece(piece)
             self._set_piece_occupied_cell(
                 occupied_cells,
