@@ -34,6 +34,7 @@ NO_PENDING_PAWN_PROMOTION = "no_pending_pawn_promotion"
 WRONG_PROMOTION_PIECE = "wrong_promotion_piece"
 INVALID_PROMOTION_CHOICE = "invalid_promotion_choice"
 PROMOTION_PIECE_NOT_FOUND = "promotion_piece_not_found"
+JUMP_NOT_IMPLEMENTED = "jump_not_implemented"
 
 
 class GameEngine:
@@ -106,6 +107,15 @@ class GameEngine:
             return MoveResult(False, PIECE_IN_MOTION)
 
         return MoveResult(True, "ok")
+
+    def request_jump(self, piece_id: int) -> MoveResult:
+        """
+        Placeholder for a future in-place jump action.
+
+        Jump logic, animation, and collision handling are not
+        implemented yet.
+        """
+        return MoveResult(False, JUMP_NOT_IMPLEMENTED)
 
     def active_motions(self):
         """

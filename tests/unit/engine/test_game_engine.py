@@ -2,6 +2,7 @@ from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, StateConfig
 from kungfu_chess.engine.game_engine import (
     GameEngine,
+    JUMP_NOT_IMPLEMENTED,
     PENDING_PAWN_PROMOTION,
     PIECE_IN_COOLDOWN,
     PIECE_IN_MOTION,
@@ -168,6 +169,24 @@ def test_valid_move_returns_ok():
     assert result.reason == "ok"
 
     assert rule_engine.called is True
+
+
+def test_request_jump_is_placeholder_and_does_not_change_game_state():
+    engine, state, rule_engine = create_engine(MoveValidation(True, "ok"))
+    piece = state.board.pieces_by_id[1]
+    original_cell = piece.cell
+    original_state = piece.state
+    original_kind = piece.kind
+
+    result = engine.request_jump(piece.id)
+
+    assert result.is_accepted is False
+    assert result.reason == JUMP_NOT_IMPLEMENTED
+    assert piece.cell == original_cell
+    assert piece.state == original_state
+    assert piece.kind == original_kind
+    assert state.pending_pawn_promotion is None
+    assert rule_engine.called is False
 
 
 def test_invalid_move_returns_reason():

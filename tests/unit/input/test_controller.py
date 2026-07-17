@@ -1,4 +1,5 @@
 from kungfu_chess.input.controller import Controller
+from kungfu_chess.input.jump_command import JumpCommand
 from kungfu_chess.input.promote_pawn_command import PromotePawnCommand
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.piece import Piece
@@ -22,11 +23,16 @@ class FakeGameEngine:
         self.calls = []
         self.legal_moves_calls = []
         self.promotion_calls = []
+        self.jump_calls = []
         self.in_cooldown = in_cooldown
 
     def request_move(self, source, destination):
         self.calls.append((source, destination))
         return "move_result"
+
+    def request_jump(self, piece_id):
+        self.jump_calls.append(piece_id)
+        return "jump_result"
 
     def is_piece_in_cooldown(self, piece_id):
         return self.in_cooldown
@@ -187,3 +193,25 @@ def test_handle_promotion_choice_forwards_knight_to_engine():
 
     assert result == "promotion_result"
     assert engine.promotion_calls == [(3, PieceKind.KNIGHT)]
+
+
+def test_second_click_on_same_cell_sends_jump_to_engine():
+    controller, engine = create_controller()
+
+    controller.handle_click(50, 50)
+    result = controller.handle_click(50, 50)
+
+    assert result == "jump_result"
+    assert engine.jump_calls == [1]
+    assert engine.calls == []
+
+
+def test_second_click_on_different_cell_still_sends_move_to_engine():
+    controller, engine = create_controller()
+
+    controller.handle_click(50, 50)
+    result = controller.handle_click(150, 50)
+
+    assert result == "move_result"
+    assert engine.calls == [(Position(0, 0), Position(0, 1))]
+    assert engine.jump_calls == []
