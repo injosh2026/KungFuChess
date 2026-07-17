@@ -290,6 +290,170 @@ def test_request_jump_rejected_while_piece_is_in_motion():
     assert piece.state == PieceState.IDLE
 
 
+def test_request_jump_creates_active_jump_window():
+    engine, _, piece, _ = create_jump_engine()
+
+    engine.request_jump(piece.id)
+
+    assert engine._jump_window_tracker.is_active_at(piece.id, 0) is True
+    assert engine._jump_window_tracker.is_active_at(piece.id, 499) is True
+    assert engine._jump_window_tracker.is_active_at(piece.id, 500) is False
+
+
+def test_request_jump_does_not_set_has_moved():
+    engine, _, piece, _ = create_jump_engine()
+
+    engine.request_jump(piece.id)
+
+    assert piece.has_moved is False
+
+
+def create_jump_collision_engine():
+    board = Board(8, 8)
+    defender = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.KNIGHT,
+        cell=Position(0, 3),
+    )
+    attacker = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0),
+    )
+    board.add_piece(defender)
+    board.add_piece(attacker)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+        jump_rule=JumpRule(),
+    )
+    return engine, state, defender, attacker
+
+
+def test_jumping_defender_captures_enemy_landing_on_cell():
+    engine, state, defender, attacker = create_jump_collision_engine()
+
+    engine.request_jump(defender.id)
+    engine.realtime_arbiter.start_motion(
+        Motion(2, Position(0, 0), Position(0, 3), duration_ms=400)
+    )
+
+    captured = engine.wait(400)
+
+    assert captured == [attacker]
+    assert state.board.get_piece_by_id(defender.id) is defender
+    assert state.board.get_piece_by_position(Position(0, 3)) is defender
+    assert state.board.get_piece_by_id(attacker.id) is None
+    assert defender.has_moved is False
+
+
+def test_expired_jump_window_leaves_defender_vulnerable():
+    engine, state, defender, attacker = create_jump_collision_engine()
+
+    engine.request_jump(defender.id)
+    engine.wait(600)
+    engine.realtime_arbiter.start_motion(
+        Motion(2, Position(0, 0), Position(0, 3), duration_ms=400)
+    )
+
+    captured = engine.wait(400)
+
+    assert captured == [defender]
+    assert state.board.get_piece_by_id(defender.id) is None
+    assert state.board.get_piece_by_position(Position(0, 3)).id == 2
+
+
+def test_jumping_king_capturing_enemy_does_not_end_game():
+    board = Board(8, 8)
+    defender = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.KING,
+        cell=Position(0, 3),
+    )
+    attacker = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0),
+    )
+    board.add_piece(defender)
+    board.add_piece(attacker)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+        jump_rule=JumpRule(),
+    )
+
+    engine.request_jump(defender.id)
+    engine.realtime_arbiter.start_motion(
+        Motion(2, Position(0, 0), Position(0, 3), duration_ms=400)
+    )
+
+    captured = engine.wait(400)
+
+    assert captured == [attacker]
+    assert state.game_over is False
+    assert state.board.get_piece_by_id(defender.id) is defender
+
+
+def test_jumping_defender_capturing_king_ends_game():
+    board = Board(8, 8)
+    defender = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.KNIGHT,
+        cell=Position(0, 3),
+    )
+    attacker = Piece(
+        id=2,
+        color=Color.BLACK,
+        kind=PieceKind.KING,
+        cell=Position(0, 0),
+    )
+    board.add_piece(defender)
+    board.add_piece(attacker)
+    state = GameState(board)
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        FakeMotionFactory(),
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+        jump_rule=JumpRule(),
+    )
+
+    engine.request_jump(defender.id)
+    engine.realtime_arbiter.start_motion(
+        Motion(2, Position(0, 0), Position(0, 3), duration_ms=400)
+    )
+
+    captured = engine.wait(400)
+
+    assert captured == [attacker]
+    assert state.game_over is True
+    assert state.board.get_piece_by_id(defender.id) is defender
+
+
 def test_invalid_move_returns_reason():
 
     engine, _, _ = create_engine(MoveValidation(False, "illegal_piece_move"))

@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from kungfu_chess.engine.collision_decisions import (
     ENTRY_EVENT_PRIORITY,
     COMPLETION_EVENT_PRIORITY,
@@ -16,6 +18,9 @@ from kungfu_chess.realtime.motion_kinematics import (
     entry_time_ms,
     mid_path_indices,
 )
+
+
+JumpActiveCheck = Callable[[int, int], bool]
 
 
 class CollisionResolver:
@@ -44,7 +49,14 @@ class CollisionResolver:
             )
         )
 
-    def resolve_arrival(self, motion: Motion, board: Board) -> ArrivalOutcome:
+    def resolve_arrival(
+        self,
+        motion: Motion,
+        board: Board,
+        *,
+        is_jump_active: JumpActiveCheck | None = None,
+        event_time_ms: int = 0,
+    ) -> ArrivalOutcome:
         """
         Inspects the target cell before an arrival is applied.
 
@@ -68,6 +80,18 @@ class CollisionResolver:
             return ArrivalOutcome()
 
         if occupant.color != mover.color:
+            if is_jump_active is not None and is_jump_active(
+                occupant.id,
+                event_time_ms,
+            ):
+                return ArrivalOutcome(
+                    capture=CaptureAtArrival(
+                        capturer_piece_id=occupant.id,
+                        victim_piece_id=motion.piece_id,
+                        at_cell=motion.target,
+                    )
+                )
+
             return ArrivalOutcome(
                 capture=CaptureAtArrival(
                     capturer_piece_id=motion.piece_id,
@@ -166,6 +190,7 @@ class CollisionResolver:
         occupied_cells: dict,
         *,
         active_motions: tuple[Motion, ...] = (),
+        is_jump_active: JumpActiveCheck | None = None,
     ) -> EntryOutcome:
         """
         Inspects a cell entry against current logical occupancy.
@@ -190,6 +215,18 @@ class CollisionResolver:
 
         occupant = occupied_cells.get(event.cell)
         if occupant is not None and occupant.color != mover.color:
+            if is_jump_active is not None and is_jump_active(
+                occupant.piece_id,
+                event.time_from_wait_start_ms,
+            ):
+                return EntryOutcome(
+                    capture=CaptureAtArrival(
+                        capturer_piece_id=occupant.piece_id,
+                        victim_piece_id=event.piece_id,
+                        at_cell=event.cell,
+                    )
+                )
+
             return EntryOutcome(
                 capture=CaptureAtArrival(
                     capturer_piece_id=event.piece_id,

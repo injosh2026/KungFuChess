@@ -9,6 +9,7 @@ from kungfu_chess.engine.collision_decisions import (
     MotionCompletionEvent,
 )
 from kungfu_chess.engine.collision_resolver import CollisionResolver
+from kungfu_chess.engine.jump_window_tracker import JumpWindowTracker
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.move_result import MoveResult
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
@@ -73,6 +74,7 @@ class GameEngine:
         self._config_repository = config_repository
         self._state_timer = state_timer
         self._collision_resolver = collision_resolver or CollisionResolver()
+        self._jump_window_tracker = JumpWindowTracker()
         self._pawn_end_handler = pawn_end_handler
         self._jump_rule = jump_rule or JumpRule()
 
@@ -136,6 +138,11 @@ class GameEngine:
         piece.state = self._config_repository.get_jump_command_state(code)
         self._settle_piece_state(piece)
 
+        jump_config = self._config_repository.load_state(code, piece.state)
+        duration_ms = jump_config.physics.duration_ms
+        if duration_ms is not None:
+            self._jump_window_tracker.start(piece.id, duration_ms)
+
         return MoveResult(True, "ok")
 
     def active_motions(self):
@@ -183,6 +190,7 @@ class GameEngine:
                     self.game_state.board,
                     occupied_cells,
                     active_motions=self.realtime_arbiter.active_motions(),
+                    is_jump_active=self._is_jump_active,
                 )
                 self._apply_entry_outcome(
                     outcome,
@@ -203,6 +211,8 @@ class GameEngine:
             elapsed += remaining
 
         assert elapsed == milliseconds
+
+        self._jump_window_tracker.advance(milliseconds)
 
         for piece_id in self._state_timer.advance(
             milliseconds,
@@ -271,6 +281,32 @@ class GameEngine:
 
         return occupied_cells
 
+    def _is_jump_active(self, piece_id: int, event_time_ms: int) -> bool:
+        return self._jump_window_tracker.is_active_at(piece_id, event_time_ms)
+
+    def _remove_captured_piece(
+        self,
+        victim_piece_id: int,
+        occupied_cells: dict[Position, CellOccupant],
+        captured_pieces: list[Piece],
+    ) -> None:
+        victim = self.game_state.board.get_piece_by_id(victim_piece_id)
+        if victim is None:
+            return
+
+        self.game_state.board.remove_piece(victim.cell)
+        self.realtime_arbiter.cancel_motion(victim.id)
+        self._jump_window_tracker.clear(victim.id)
+
+        if victim.kind == PieceKind.KING:
+            self.game_state.game_over = True
+
+        captured_pieces.append(victim)
+
+        for cell, occupant in list(occupied_cells.items()):
+            if occupant.piece_id == victim.id:
+                del occupied_cells[cell]
+
     def _apply_entry_outcome(
         self,
         outcome: EntryOutcome,
@@ -279,19 +315,14 @@ class GameEngine:
         captured_pieces: list[Piece],
     ) -> None:
         if outcome.capture is not None:
-            victim = self.game_state.board.get_piece_by_id(
-                outcome.capture.victim_piece_id
+            self._remove_captured_piece(
+                outcome.capture.victim_piece_id,
+                occupied_cells,
+                captured_pieces,
             )
-            if victim is not None:
-                self.game_state.board.remove_piece(victim.cell)
-                self.realtime_arbiter.cancel_motion(victim.id)
-                if victim.kind == PieceKind.KING:
-                    self.game_state.game_over = True
-                captured_pieces.append(victim)
 
-                for cell, occupant in list(occupied_cells.items()):
-                    if occupant.piece_id == victim.id:
-                        del occupied_cells[cell]
+            if outcome.capture.capturer_piece_id != event.piece_id:
+                return
 
         capturer = self.game_state.board.get_piece_by_id(event.piece_id)
         if capturer is None:
@@ -323,7 +354,20 @@ class GameEngine:
         arrival_outcome = self._collision_resolver.resolve_arrival(
             motion,
             self.game_state.board,
+            is_jump_active=self._is_jump_active,
+            event_time_ms=event.time_from_wait_start_ms,
         )
+
+        if (
+            arrival_outcome.capture is not None
+            and arrival_outcome.capture.capturer_piece_id != motion.piece_id
+        ):
+            self._remove_captured_piece(
+                arrival_outcome.capture.victim_piece_id,
+                occupied_cells,
+                captured_pieces,
+            )
+            return
 
         arrival_cell = (
             arrival_outcome.arrival_cell

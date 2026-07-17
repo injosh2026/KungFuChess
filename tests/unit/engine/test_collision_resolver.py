@@ -324,6 +324,174 @@ def test_resolve_entry_event_returns_capture_for_enemy_standing_occupant():
     assert outcome.capture.victim_piece_id == 2
 
 
+def test_resolve_entry_event_captures_enemy_when_jump_window_inactive():
+    from kungfu_chess.engine.collision_decisions import (
+        CellEntryEvent,
+        CellOccupant,
+        STATIONARY_ENTRY_TIME_MS,
+    )
+
+    board = create_board_with_mover_and_optional_occupant(
+        occupant_color=Color.BLACK,
+    )
+    motion = create_motion()
+    event = CellEntryEvent(
+        piece_id=1,
+        cell=TARGET,
+        time_from_wait_start_ms=600,
+        motion=motion,
+        path_index=1,
+    )
+    occupied_cells = {
+        TARGET: CellOccupant(
+            piece_id=2,
+            color=Color.BLACK,
+            entry_time_ms=STATIONARY_ENTRY_TIME_MS,
+        )
+    }
+    resolver = CollisionResolver()
+
+    def jump_active(piece_id, event_time_ms):
+        return piece_id == 2 and event_time_ms < 500
+
+    outcome = resolver.resolve_entry_event(
+        event,
+        board,
+        occupied_cells,
+        is_jump_active=jump_active,
+    )
+
+    assert outcome.capture is not None
+    assert outcome.capture.capturer_piece_id == 1
+    assert outcome.capture.victim_piece_id == 2
+
+
+def test_resolve_entry_event_captures_entering_enemy_when_jump_window_active():
+    from kungfu_chess.engine.collision_decisions import (
+        CellEntryEvent,
+        CellOccupant,
+        STATIONARY_ENTRY_TIME_MS,
+    )
+
+    board = create_board_with_mover_and_optional_occupant(
+        occupant_color=Color.BLACK,
+    )
+    motion = create_motion()
+    event = CellEntryEvent(
+        piece_id=1,
+        cell=TARGET,
+        time_from_wait_start_ms=200,
+        motion=motion,
+        path_index=1,
+    )
+    occupied_cells = {
+        TARGET: CellOccupant(
+            piece_id=2,
+            color=Color.BLACK,
+            entry_time_ms=STATIONARY_ENTRY_TIME_MS,
+        )
+    }
+    resolver = CollisionResolver()
+
+    def jump_active(piece_id, event_time_ms):
+        return piece_id == 2 and event_time_ms < 500
+
+    outcome = resolver.resolve_entry_event(
+        event,
+        board,
+        occupied_cells,
+        is_jump_active=jump_active,
+    )
+
+    assert outcome.capture is not None
+    assert outcome.capture.capturer_piece_id == 2
+    assert outcome.capture.victim_piece_id == 1
+
+
+def test_resolve_entry_event_has_no_jump_protection_before_window_starts():
+    from kungfu_chess.engine.collision_decisions import (
+        CellEntryEvent,
+        CellOccupant,
+        STATIONARY_ENTRY_TIME_MS,
+    )
+
+    board = create_board_with_mover_and_optional_occupant(
+        occupant_color=Color.BLACK,
+    )
+    motion = create_motion()
+    event = CellEntryEvent(
+        piece_id=1,
+        cell=TARGET,
+        time_from_wait_start_ms=200,
+        motion=motion,
+        path_index=1,
+    )
+    occupied_cells = {
+        TARGET: CellOccupant(
+            piece_id=2,
+            color=Color.BLACK,
+            entry_time_ms=STATIONARY_ENTRY_TIME_MS,
+        )
+    }
+    resolver = CollisionResolver()
+
+    def jump_active(piece_id, event_time_ms):
+        return piece_id == 2 and event_time_ms >= 300
+
+    outcome = resolver.resolve_entry_event(
+        event,
+        board,
+        occupied_cells,
+        is_jump_active=jump_active,
+    )
+
+    assert outcome.capture is not None
+    assert outcome.capture.capturer_piece_id == 1
+    assert outcome.capture.victim_piece_id == 2
+
+
+def test_resolve_arrival_captures_entering_enemy_when_jump_window_active():
+    board = create_board_with_mover_and_optional_occupant(
+        occupant_color=Color.BLACK,
+    )
+    resolver = CollisionResolver()
+
+    def jump_active(piece_id, event_time_ms):
+        return piece_id == 2 and event_time_ms < 500
+
+    outcome = resolver.resolve_arrival(
+        create_motion(),
+        board,
+        is_jump_active=jump_active,
+        event_time_ms=200,
+    )
+
+    assert outcome.capture is not None
+    assert outcome.capture.capturer_piece_id == 2
+    assert outcome.capture.victim_piece_id == 1
+
+
+def test_resolve_arrival_captures_defender_when_jump_window_expired():
+    board = create_board_with_mover_and_optional_occupant(
+        occupant_color=Color.BLACK,
+    )
+    resolver = CollisionResolver()
+
+    def jump_active(piece_id, event_time_ms):
+        return piece_id == 2 and event_time_ms < 500
+
+    outcome = resolver.resolve_arrival(
+        create_motion(),
+        board,
+        is_jump_active=jump_active,
+        event_time_ms=600,
+    )
+
+    assert outcome.capture is not None
+    assert outcome.capture.capturer_piece_id == 1
+    assert outcome.capture.victim_piece_id == 2
+
+
 def test_resolve_entry_event_returns_no_capture_for_empty_cell():
     from kungfu_chess.engine.collision_decisions import CellEntryEvent
 
