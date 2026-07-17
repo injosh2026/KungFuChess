@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.piece_color import Color
+from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 
 
 @dataclass(slots=True)
@@ -18,6 +19,7 @@ class GameState:
     board: Board
     game_over: bool = False
     winner: Color | None = None
+    pending_pawn_promotion: PendingPawnPromotion | None = None
     scores: dict = field(
         default_factory=lambda: {
             Color.WHITE: 0,

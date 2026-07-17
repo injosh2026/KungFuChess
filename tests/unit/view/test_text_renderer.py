@@ -21,7 +21,7 @@ def create_piece_snapshot(
         color=color,
         kind=kind,
         position=Position(row, col),
-        state=PieceState.IDLE
+        state=PieceState.IDLE,
     )
 
 
@@ -32,7 +32,8 @@ def create_snapshot(pieces, game_over=False):
         board_height=3,
         pieces=pieces,
         selected_cell=None,
-        game_over=game_over
+        legal_moves=set(),
+        game_over=game_over,
     )
 
 

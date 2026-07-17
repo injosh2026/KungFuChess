@@ -13,6 +13,10 @@ class PawnRule:
     be replaced by configurable game rules.
     """
 
+    WHITE_STARTING_RANK = 6
+    BLACK_STARTING_RANK = 1
+    DOUBLE_STEP_CELLS = 2
+
     def legal_destinations(self, board: Board, piece: Piece) -> set[Position]:
         """
         Calculates all legal destination positions for a pawn.
@@ -33,6 +37,12 @@ class PawnRule:
 
         if board.is_inside(forward) and board.get_piece_by_position(forward) is None:
             destinations.add(forward)
+            self._add_first_move_double_step(
+                board,
+                piece,
+                direction,
+                destinations,
+            )
 
         # diagonal captures
         for col_offset in (-1, 1):
@@ -55,3 +65,30 @@ class PawnRule:
             return -1
 
         return 1
+
+    def _is_on_starting_rank(self, piece: Piece) -> bool:
+        if piece.color == Color.WHITE:
+            return piece.cell.row == self.WHITE_STARTING_RANK
+
+        return piece.cell.row == self.BLACK_STARTING_RANK
+
+    def _add_first_move_double_step(
+        self,
+        board: Board,
+        piece: Piece,
+        direction: int,
+        destinations: set[Position],
+    ) -> None:
+        if piece.has_moved or not self._is_on_starting_rank(piece):
+            return
+
+        double_step = Position(
+            piece.cell.row + self.DOUBLE_STEP_CELLS * direction,
+            piece.cell.col,
+        )
+
+        if (
+            board.is_inside(double_step)
+            and board.get_piece_by_position(double_step) is None
+        ):
+            destinations.add(double_step)

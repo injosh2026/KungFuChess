@@ -1,9 +1,13 @@
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from types import MappingProxyType
 
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
-from kungfu_chess.model.piece_state import PieceState
 from kungfu_chess.model.position import Position
+from kungfu_chess.view.runtime_role import RuntimeRole
+
+EMPTY_RUNTIME_PROGRESS: Mapping[RuntimeRole, float] = MappingProxyType({})
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,7 +22,25 @@ class PieceSnapshot:
     kind: PieceKind
     color: Color
     position: Position
-    state: PieceState
+    state: str
+    visual_position: tuple[float, float] | None = None
+    runtime_progress: Mapping[RuntimeRole, float] = field(
+        default=EMPTY_RUNTIME_PROGRESS,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class PromotionSnapshot:
+    """
+    Immutable promotion choice data for rendering and input routing.
+
+    Built from pending pawn promotion state without exposing GameState.
+    """
+
+    piece_id: int
+    position: Position
+    color: Color
+    allowed_kinds: frozenset[PieceKind]
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,5 +56,7 @@ class GameSnapshot:
     board_height: int
     pieces: list[PieceSnapshot]
     selected_cell: Position | None
+    legal_moves: set[Position]
     game_over: bool
     winner: Color | None = None
+    pending_promotion: PromotionSnapshot | None = None

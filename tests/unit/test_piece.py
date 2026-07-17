@@ -13,6 +13,7 @@ def test_piece_creation():
     assert piece.kind == PieceKind.KING
     assert piece.cell == Position(0, 4)
     assert piece.state == PieceState.IDLE
+    assert piece.has_moved is False
 
 
 def test_piece_state_can_change():
@@ -21,3 +22,15 @@ def test_piece_state_can_change():
     piece.state = PieceState.MOVING
 
     assert piece.state == PieceState.MOVING
+
+
+def test_piece_accepts_any_state_string():
+    piece = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.ROOK,
+        cell=Position(0, 0),
+        state="jump",
+    )
+
+    assert piece.state == "jump"

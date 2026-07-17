@@ -1,5 +1,7 @@
 from kungfu_chess.engine.game_engine import GameEngine
 from kungfu_chess.input.board_mapper import BoardMapper
+from kungfu_chess.input.jump_command import JumpCommand
+from kungfu_chess.input.promote_pawn_command import PromotePawnCommand
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.position import Position
 
@@ -39,6 +41,19 @@ class Controller:
     def selected_position(self) -> Position | None:
         return self._selected_position
 
+    @property
+    def legal_moves(self):
+        if self._selected_position is None:
+            return set()
+
+        piece = self.board.get_piece_by_position(self._selected_position)
+        if piece is not None and self.game_engine.is_piece_in_cooldown(piece.id):
+            return set()
+
+        return self.game_engine.get_legal_moves(
+            self._selected_position
+        )
+
     def handle_click(self, x: int, y: int):
         """
         Processes a mouse click.
@@ -75,10 +90,49 @@ class Controller:
             if piece is None:
                 return None
 
+            if self.game_engine.is_piece_in_cooldown(piece.id):
+                return None
+
             self._selected_position = position
             return None
 
         source = self._selected_position
         self._selected_position = None
 
+        if source == position:
+            piece = self.board.get_piece_by_position(source)
+            if piece is None:
+                return None
+
+            return self.handle_jump(JumpCommand(piece_id=piece.id))
+
         return self.game_engine.request_move(source, position)
+
+    def handle_jump(self, command: JumpCommand):
+        """
+        Forwards a jump request to the game engine.
+
+        Args:
+            command:
+                Jump request data from input.
+
+        Returns:
+            MoveResult from the game engine.
+        """
+        return self.game_engine.request_jump(command.piece_id)
+
+    def handle_promotion_choice(self, command: PromotePawnCommand):
+        """
+        Forwards a pawn promotion choice to the game engine.
+
+        Args:
+            command:
+                Promotion choice data from input.
+
+        Returns:
+            MoveResult from the game engine.
+        """
+        return self.game_engine.submit_pawn_promotion_choice(
+            command.piece_id,
+            command.chosen_kind,
+        )

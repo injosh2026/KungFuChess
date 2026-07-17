@@ -1,4 +1,6 @@
 from kungfu_chess.input.controller import Controller
+from kungfu_chess.input.jump_command import JumpCommand
+from kungfu_chess.input.promote_pawn_command import PromotePawnCommand
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.piece import Piece
 from kungfu_chess.model.piece_color import Color
@@ -17,12 +19,31 @@ class FakeBoardMapper:
 
 class FakeGameEngine:
 
-    def __init__(self):
+    def __init__(self, in_cooldown=False):
         self.calls = []
+        self.legal_moves_calls = []
+        self.promotion_calls = []
+        self.jump_calls = []
+        self.in_cooldown = in_cooldown
 
     def request_move(self, source, destination):
         self.calls.append((source, destination))
         return "move_result"
+
+    def request_jump(self, piece_id):
+        self.jump_calls.append(piece_id)
+        return "jump_result"
+
+    def is_piece_in_cooldown(self, piece_id):
+        return self.in_cooldown
+
+    def get_legal_moves(self, position):
+        self.legal_moves_calls.append(position)
+        return {Position(0, 1)}
+
+    def submit_pawn_promotion_choice(self, piece_id, chosen_kind):
+        self.promotion_calls.append((piece_id, chosen_kind))
+        return "promotion_result"
 
 
 def create_controller():
@@ -124,3 +145,73 @@ def test_click_outside_board_with_selection_cancels_selection():
 
     assert controller.selected_position is None
     assert engine.calls == []
+
+
+def test_click_does_not_select_piece_in_cooldown():
+    controller, engine = create_controller()
+    engine.in_cooldown = True
+
+    controller.handle_click(50, 50)
+
+    assert controller.selected_position is None
+    assert engine.calls == []
+
+
+def test_legal_moves_are_empty_when_selected_piece_is_in_cooldown():
+    controller, engine = create_controller()
+    engine.in_cooldown = True
+    controller._selected_position = Position(0, 0)
+
+    assert controller.legal_moves == set()
+    assert engine.legal_moves_calls == []
+
+
+def test_legal_moves_use_rule_engine_when_piece_is_not_in_cooldown():
+    controller, engine = create_controller()
+
+    controller.handle_click(50, 50)
+
+    assert controller.legal_moves == {Position(0, 1)}
+    assert engine.legal_moves_calls == [Position(0, 0)]
+
+
+def test_handle_promotion_choice_forwards_queen_to_engine():
+    controller, engine = create_controller()
+
+    command = PromotePawnCommand(piece_id=1, chosen_kind=PieceKind.QUEEN)
+    result = controller.handle_promotion_choice(command)
+
+    assert result == "promotion_result"
+    assert engine.promotion_calls == [(1, PieceKind.QUEEN)]
+
+
+def test_handle_promotion_choice_forwards_knight_to_engine():
+    controller, engine = create_controller()
+
+    command = PromotePawnCommand(piece_id=3, chosen_kind=PieceKind.KNIGHT)
+    result = controller.handle_promotion_choice(command)
+
+    assert result == "promotion_result"
+    assert engine.promotion_calls == [(3, PieceKind.KNIGHT)]
+
+
+def test_second_click_on_same_cell_sends_jump_to_engine():
+    controller, engine = create_controller()
+
+    controller.handle_click(50, 50)
+    result = controller.handle_click(50, 50)
+
+    assert result == "jump_result"
+    assert engine.jump_calls == [1]
+    assert engine.calls == []
+
+
+def test_second_click_on_different_cell_still_sends_move_to_engine():
+    controller, engine = create_controller()
+
+    controller.handle_click(50, 50)
+    result = controller.handle_click(150, 50)
+
+    assert result == "move_result"
+    assert engine.calls == [(Position(0, 0), Position(0, 1))]
+    assert engine.jump_calls == []
