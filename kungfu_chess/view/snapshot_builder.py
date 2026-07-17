@@ -1,13 +1,16 @@
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
+from types import MappingProxyType
 
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.position import Position
 from kungfu_chess.view.visual_position import VisualPositionCalculator
 from kungfu_chess.view.game_snapshot import (
+    EMPTY_RUNTIME_PROGRESS,
     GameSnapshot,
     PieceSnapshot,
     PromotionSnapshot,
 )
+from kungfu_chess.view.runtime_role import RuntimeRole
 
 
 class SnapshotBuilder:
@@ -25,13 +28,15 @@ class SnapshotBuilder:
     def __init__(
         self,
         visual_position_calculator=None,
-        get_state_progress: Callable[[int], float | None] | None = None,
+        get_runtime_progress: Callable[
+            [int], Mapping[RuntimeRole, float]
+        ] | None = None,
     ):
         self._visual_position_calculator = (
             visual_position_calculator or VisualPositionCalculator(100)
         )
-        self._get_state_progress = get_state_progress or (
-            lambda _piece_id: None
+        self._get_runtime_progress = get_runtime_progress or (
+            lambda _piece_id: EMPTY_RUNTIME_PROGRESS
         )
 
     def build(
@@ -84,7 +89,9 @@ class SnapshotBuilder:
                     position=piece.cell,
                     state=piece.state,
                     visual_position=visual_position,
-                    state_progress=self._get_state_progress(piece.id),
+                    runtime_progress=self._immutable_runtime_progress(
+                        self._get_runtime_progress(piece.id),
+                    ),
                 )
             )
 
@@ -103,6 +110,15 @@ class SnapshotBuilder:
             winner=game_state.winner,
             pending_promotion=pending_promotion,
         )
+
+    @staticmethod
+    def _immutable_runtime_progress(
+        runtime_progress: Mapping[RuntimeRole, float],
+    ) -> Mapping[RuntimeRole, float]:
+        if not runtime_progress:
+            return EMPTY_RUNTIME_PROGRESS
+
+        return MappingProxyType(dict(runtime_progress))
 
     @staticmethod
     def _build_pending_promotion(game_state: GameState) -> PromotionSnapshot | None:

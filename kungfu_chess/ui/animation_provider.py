@@ -4,6 +4,7 @@ from kungfu_chess.ui.piece_code import piece_code
 from kungfu_chess.ui.sprite_animator import SpriteAnimator
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.view.game_snapshot import PieceSnapshot
+from kungfu_chess.view.runtime_role import RuntimeRole
 
 
 class AnimationProvider:
@@ -28,4 +29,12 @@ class AnimationProvider:
         animation = self._sprite_library.get_animation(
             piece_code(piece.kind, piece.color), piece.state
         )
-        return SpriteAnimator(animation).frame_at(self._clock.elapsed_ms())
+        animator = SpriteAnimator(animation)
+
+        active_ability_progress = piece.runtime_progress.get(
+            RuntimeRole.ACTIVE_ABILITY,
+        )
+        if not animation.is_loop and active_ability_progress is not None:
+            return animator.frame_at_progress(active_ability_progress)
+
+        return animator.frame_at(self._clock.elapsed_ms())

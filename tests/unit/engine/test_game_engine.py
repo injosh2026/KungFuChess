@@ -23,8 +23,29 @@ from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.jump_rule import JumpRule
 from kungfu_chess.rules.move_validation import MoveValidation
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+from kungfu_chess.view.runtime_role import RuntimeRole
+from kungfu_chess.view.snapshot_builder import SnapshotBuilder
 
 import pytest
+
+
+class FixedJumpDurationResolver:
+
+    def __init__(self, duration_ms: int):
+        self._duration_ms = duration_ms
+
+    def duration_ms(self, piece_code, jump_state_name):
+        return self._duration_ms
+
+
+class JumpLifecycleTransitionResolver:
+
+    def resolve(self, piece_code, current_state):
+        if current_state == "jump":
+            return "short_rest"
+        if current_state == "short_rest":
+            return "idle"
+        return current_state
 
 
 class FakeRuleEngine:
@@ -95,9 +116,18 @@ class FakeConfigRepository:
                 physics=PhysicsConfig(
                     speed_m_per_sec=3.0,
                     next_state_when_finished="short_rest",
-                    duration_ms=500,
                 ),
                 graphics=GraphicsConfig(frames_per_sec=8, is_loop=False),
+            )
+
+        if state_name == "short_rest":
+            return StateConfig(
+                physics=PhysicsConfig(
+                    speed_m_per_sec=0.0,
+                    next_state_when_finished="idle",
+                    duration_ms=1500,
+                ),
+                graphics=GraphicsConfig(frames_per_sec=8, is_loop=True),
             )
 
         return StateConfig(
@@ -200,7 +230,7 @@ def test_valid_move_returns_ok():
     assert rule_engine.called is True
 
 
-def create_jump_engine(motion_factory=None):
+def create_jump_engine(motion_factory=None, jump_duration_ms=500, state_timer=None):
     board = Board(8, 8)
     piece = Piece(
         id=1,
@@ -217,10 +247,11 @@ def create_jump_engine(motion_factory=None):
         FakeRuleEngine(MoveValidation(True, "ok")),
         RealTimeArbiter(),
         motion_factory,
-        FakeStateTransitionResolver(),
+        JumpLifecycleTransitionResolver(),
         FakeConfigRepository(),
-        FakeStateTimer(),
+        state_timer or FakeStateTimer(),
         jump_rule=JumpRule(),
+        jump_duration_resolver=FixedJumpDurationResolver(jump_duration_ms),
     )
     return engine, state, piece, motion_factory
 
@@ -331,10 +362,11 @@ def create_jump_collision_engine():
         FakeRuleEngine(MoveValidation(True, "ok")),
         RealTimeArbiter(),
         FakeMotionFactory(),
-        FakeStateTransitionResolver(),
+        JumpLifecycleTransitionResolver(),
         FakeConfigRepository(),
         FakeStateTimer(),
         jump_rule=JumpRule(),
+        jump_duration_resolver=FixedJumpDurationResolver(500),
     )
     return engine, state, defender, attacker
 
@@ -395,10 +427,11 @@ def test_jumping_king_capturing_enemy_does_not_end_game():
         FakeRuleEngine(MoveValidation(True, "ok")),
         RealTimeArbiter(),
         FakeMotionFactory(),
-        FakeStateTransitionResolver(),
+        JumpLifecycleTransitionResolver(),
         FakeConfigRepository(),
         FakeStateTimer(),
         jump_rule=JumpRule(),
+        jump_duration_resolver=FixedJumpDurationResolver(500),
     )
 
     engine.request_jump(defender.id)
@@ -411,6 +444,117 @@ def test_jumping_king_capturing_enemy_does_not_end_game():
     assert captured == [attacker]
     assert state.game_over is False
     assert state.board.get_piece_by_id(defender.id) is defender
+
+
+def test_snapshot_shows_jump_state_after_request_jump():
+    engine, state, piece, _ = create_jump_engine()
+    builder = SnapshotBuilder(get_runtime_progress=engine.runtime_progress)
+
+    engine.request_jump(piece.id)
+    snapshot = builder.build(state)
+
+    piece_snapshot = next(
+        snapshot_piece
+        for snapshot_piece in snapshot.pieces
+        if snapshot_piece.piece_id == piece.id
+    )
+
+    assert piece_snapshot.state == PieceState.JUMP
+    assert piece_snapshot.runtime_progress[RuntimeRole.ACTIVE_ABILITY] == 0.0
+
+
+def test_runtime_progress_returns_active_ability_for_jump():
+    engine, _, piece, _ = create_jump_engine()
+
+    engine.request_jump(piece.id)
+
+    assert engine.runtime_progress(piece.id) == {
+        RuntimeRole.ACTIVE_ABILITY: 0.0,
+    }
+
+
+def test_runtime_progress_advances_active_ability_during_jump():
+    engine, _, piece, _ = create_jump_engine(jump_duration_ms=500)
+
+    engine.request_jump(piece.id)
+    engine.wait(250)
+
+    assert engine.runtime_progress(piece.id) == {
+        RuntimeRole.ACTIVE_ABILITY: 0.5,
+    }
+
+
+def test_runtime_progress_returns_recovery_after_jump_finishes():
+    engine, _, piece, _ = create_jump_engine(
+        jump_duration_ms=500,
+        state_timer=StateTimer(),
+    )
+
+    engine.request_jump(piece.id)
+    engine.wait(500)
+
+    assert piece.state == "short_rest"
+    assert engine.runtime_progress(piece.id) == {RuntimeRole.RECOVERY: 0.0}
+
+    engine.wait(750)
+
+    assert engine.runtime_progress(piece.id) == {RuntimeRole.RECOVERY: 0.5}
+
+
+def test_timed_state_progress_returns_jump_progress_after_request_jump():
+    engine, _, piece, _ = create_jump_engine()
+
+    engine.request_jump(piece.id)
+
+    assert engine.timed_state_progress(piece.id) == 0.0
+
+
+def test_timed_state_progress_advances_during_wait():
+    engine, _, piece, _ = create_jump_engine(jump_duration_ms=500)
+
+    engine.request_jump(piece.id)
+    engine.wait(250)
+
+    assert engine.timed_state_progress(piece.id) == 0.5
+
+
+def test_timed_state_progress_uses_state_timer_after_jump_finishes():
+    engine, _, piece, _ = create_jump_engine(
+        jump_duration_ms=500,
+        state_timer=StateTimer(),
+    )
+
+    engine.request_jump(piece.id)
+    engine.wait(500)
+
+    assert piece.state == "short_rest"
+    assert engine.timed_state_progress(piece.id) == 0.0
+
+    engine.wait(750)
+
+    assert engine.timed_state_progress(piece.id) == 0.5
+
+
+def test_jump_transitions_to_short_rest_after_duration():
+    engine, _, piece, _ = create_jump_engine(jump_duration_ms=500)
+
+    engine.request_jump(piece.id)
+    assert piece.state == PieceState.JUMP
+
+    engine.wait(499)
+    assert piece.state == PieceState.JUMP
+
+    engine.wait(1)
+    assert piece.state == "short_rest"
+
+
+def test_move_state_unchanged_by_jump_lifecycle():
+    engine, _, piece, _ = create_jump_engine()
+
+    engine.request_move(Position(0, 0), Position(0, 1))
+
+    assert piece.state == PieceState.MOVING
+    assert engine.realtime_arbiter.has_motion(piece.id) is True
 
 
 def test_jumping_defender_capturing_king_ends_game():
@@ -436,10 +580,11 @@ def test_jumping_defender_capturing_king_ends_game():
         FakeRuleEngine(MoveValidation(True, "ok")),
         RealTimeArbiter(),
         FakeMotionFactory(),
-        FakeStateTransitionResolver(),
+        JumpLifecycleTransitionResolver(),
         FakeConfigRepository(),
         FakeStateTimer(),
         jump_rule=JumpRule(),
+        jump_duration_resolver=FixedJumpDurationResolver(500),
     )
 
     engine.request_jump(defender.id)

@@ -50,7 +50,7 @@ def build_snapshot():
 
     return SnapshotBuilder(
         calculator,
-        get_state_progress=game_engine.state_timer_progress,
+        get_runtime_progress=game_engine.runtime_progress,
     ).build(game_engine.game_state)
 
 

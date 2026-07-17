@@ -42,5 +42,15 @@ class JumpWindowTracker:
 
         return window.elapsed_ms + additional_elapsed_ms < window.duration_ms
 
+    def progress(self, piece_id: int) -> float | None:
+        window = self._windows.get(piece_id)
+        if window is None:
+            return None
+
+        if window.duration_ms <= 0:
+            return 1.0
+
+        return min(window.elapsed_ms / window.duration_ms, 1.0)
+
     def clear(self, piece_id: int) -> None:
         self._windows.pop(piece_id, None)

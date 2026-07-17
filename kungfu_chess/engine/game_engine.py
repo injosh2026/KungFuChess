@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from kungfu_chess.config.piece_code import piece_code
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.engine.arrival_resolver import ArrivalResolver
@@ -9,7 +11,9 @@ from kungfu_chess.engine.collision_decisions import (
     MotionCompletionEvent,
 )
 from kungfu_chess.engine.collision_resolver import CollisionResolver
+from kungfu_chess.engine.jump_duration_resolver import JumpDurationResolver
 from kungfu_chess.engine.jump_window_tracker import JumpWindowTracker
+from kungfu_chess.view.runtime_role import RuntimeRole
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.move_result import MoveResult
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
@@ -64,6 +68,7 @@ class GameEngine:
         collision_resolver: CollisionResolver | None = None,
         pawn_end_handler: PawnEndHandler | None = None,
         jump_rule: JumpRule | None = None,
+        jump_duration_resolver: JumpDurationResolver | None = None,
     ):
         self.game_state = game_state
         self.rule_engine = rule_engine
@@ -75,6 +80,9 @@ class GameEngine:
         self._state_timer = state_timer
         self._collision_resolver = collision_resolver or CollisionResolver()
         self._jump_window_tracker = JumpWindowTracker()
+        self._jump_duration_resolver = jump_duration_resolver or JumpDurationResolver(
+            config_repository
+        )
         self._pawn_end_handler = pawn_end_handler
         self._jump_rule = jump_rule or JumpRule()
 
@@ -134,14 +142,14 @@ class GameEngine:
         if not self._jump_rule.can_jump(self.game_state, piece):
             return MoveResult(False, JUMP_NOT_ALLOWED)
 
-        code = piece_code(piece.kind, piece.color)
-        piece.state = self._config_repository.get_jump_command_state(code)
-        self._settle_piece_state(piece)
+        if self._jump_window_tracker.is_active_at(piece.id, 0):
+            return MoveResult(False, PIECE_IN_COOLDOWN)
 
-        jump_config = self._config_repository.load_state(code, piece.state)
-        duration_ms = jump_config.physics.duration_ms
-        if duration_ms is not None:
-            self._jump_window_tracker.start(piece.id, duration_ms)
+        code = piece_code(piece.kind, piece.color)
+        jump_state = self._config_repository.get_jump_command_state(code)
+        piece.state = jump_state
+        duration_ms = self._jump_duration_resolver.duration_ms(code, jump_state)
+        self._jump_window_tracker.start(piece.id, duration_ms)
 
         return MoveResult(True, "ok")
 
@@ -212,7 +220,14 @@ class GameEngine:
 
         assert elapsed == milliseconds
 
-        self._jump_window_tracker.advance(milliseconds)
+        for piece_id in self._jump_window_tracker.advance(milliseconds):
+            piece = self.game_state.board.pieces_by_id.get(piece_id)
+            if piece is None:
+                continue
+
+            code = piece_code(piece.kind, piece.color)
+            if piece.state == self._config_repository.get_jump_command_state(code):
+                self._transition_piece(piece)
 
         for piece_id in self._state_timer.advance(
             milliseconds,
@@ -225,6 +240,26 @@ class GameEngine:
         return captured_pieces
 
     def state_timer_progress(self, piece_id: int) -> float | None:
+        return self._state_timer.progress(piece_id)
+
+    def runtime_progress(self, piece_id: int) -> Mapping[RuntimeRole, float]:
+        progress: dict[RuntimeRole, float] = {}
+
+        active_ability_progress = self._jump_window_tracker.progress(piece_id)
+        if active_ability_progress is not None:
+            progress[RuntimeRole.ACTIVE_ABILITY] = active_ability_progress
+
+        recovery_progress = self._state_timer.progress(piece_id)
+        if recovery_progress is not None:
+            progress[RuntimeRole.RECOVERY] = recovery_progress
+
+        return progress
+
+    def timed_state_progress(self, piece_id: int) -> float | None:
+        jump_progress = self._jump_window_tracker.progress(piece_id)
+        if jump_progress is not None:
+            return jump_progress
+
         return self._state_timer.progress(piece_id)
 
     def is_piece_in_cooldown(self, piece_id: int) -> bool:

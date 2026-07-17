@@ -8,6 +8,8 @@ from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, Stat
 PIECE_SET_DIRNAME = "pieces2"
 PIECE_CONFIG_FILENAME = "piece.json"
 PIECE_DEFAULTS_FILENAME = "piece_defaults.json"
+SPRITES_DIRNAME = "sprites"
+SPRITE_EXTENSION = ".png"
 
 
 class PieceConfigRepository:
@@ -97,6 +99,20 @@ class PieceConfigRepository:
 
     def state_exists(self, piece_code: str, state_name: str) -> bool:
         return self._config_path(piece_code, state_name).exists()
+
+    def count_sprite_frames(self, piece_code: str, state_name: str) -> int:
+        sprites_dir = (
+            self._pieces_root()
+            / piece_code
+            / "states"
+            / state_name
+            / SPRITES_DIRNAME
+        )
+
+        if not sprites_dir.is_dir():
+            return 0
+
+        return len(list(sprites_dir.glob(f"*{SPRITE_EXTENSION}")))
 
     def _validate_state_config(
         self, piece_code: str, state_name: str, data: dict

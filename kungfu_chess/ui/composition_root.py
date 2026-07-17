@@ -72,7 +72,7 @@ def build_app(image) -> GameApp:
 
     snapshot_builder = SnapshotBuilder(
         visual_position_calculator,
-        get_state_progress=game_engine.state_timer_progress,
+        get_runtime_progress=game_engine.runtime_progress,
     )
 
     image.open_window()

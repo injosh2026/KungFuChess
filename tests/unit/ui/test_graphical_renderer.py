@@ -10,6 +10,7 @@ from kungfu_chess.ui.graphical_renderer import (
 )
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot, PromotionSnapshot
+from kungfu_chess.view.runtime_role import RuntimeRole
 
 CELL_SIZE = 100
 
@@ -240,7 +241,7 @@ def test_render_skips_state_progress_overlay_when_progress_is_none():
     assert overlay.calls == []
 
 
-def test_render_draws_state_progress_overlay_when_progress_is_set():
+def test_render_draws_state_progress_overlay_for_recovery_progress():
     background = FakeImage()
     overlay = FakeStateProgressOverlay()
     renderer = make_renderer(background, overlay=overlay)
@@ -250,7 +251,7 @@ def test_render_draws_state_progress_overlay_when_progress_is_set():
         color=Color.WHITE,
         position=Position(2, 3),
         state="any_state_name",
-        state_progress=0.25,
+        runtime_progress={RuntimeRole.RECOVERY: 0.25},
     )
 
     renderer.render(make_snapshot([piece]))
@@ -258,6 +259,24 @@ def test_render_draws_state_progress_overlay_when_progress_is_set():
     assert overlay.calls == [
         (background, 3 * CELL_SIZE, 2 * CELL_SIZE, CELL_SIZE, 0.25),
     ]
+
+
+def test_render_skips_state_progress_overlay_for_active_ability_only():
+    background = FakeImage()
+    overlay = FakeStateProgressOverlay()
+    renderer = make_renderer(background, overlay=overlay)
+    piece = PieceSnapshot(
+        piece_id=1,
+        kind=PieceKind.ROOK,
+        color=Color.WHITE,
+        position=Position(2, 3),
+        state="jump",
+        runtime_progress={RuntimeRole.ACTIVE_ABILITY: 0.4},
+    )
+
+    renderer.render(make_snapshot([piece]))
+
+    assert overlay.calls == []
 
 
 def test_state_progress_overlay_ignores_state_string():
@@ -271,7 +290,7 @@ def test_state_progress_overlay_ignores_state_string():
             color=Color.WHITE,
             position=Position(0, 0),
             state="alpha",
-            state_progress=0.0,
+            runtime_progress={RuntimeRole.RECOVERY: 0.0},
         ),
         PieceSnapshot(
             piece_id=2,
@@ -279,7 +298,7 @@ def test_state_progress_overlay_ignores_state_string():
             color=Color.BLACK,
             position=Position(1, 1),
             state="beta",
-            state_progress=0.0,
+            runtime_progress={RuntimeRole.RECOVERY: 0.0},
         ),
     ]
 

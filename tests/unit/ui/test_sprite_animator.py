@@ -59,3 +59,21 @@ def test_empty_frames_raises_value_error():
 
     with pytest.raises(ValueError):
         animator.frame_at(0)
+
+
+def test_progress_zero_selects_first_frame():
+    animator = SpriteAnimator(make_animation(5, fps=10, is_loop=False))
+
+    assert animator.frame_at_progress(0.0) == "frame-0"
+
+
+def test_progress_middle_selects_middle_frame():
+    animator = SpriteAnimator(make_animation(5, fps=10, is_loop=False))
+
+    assert animator.frame_at_progress(0.5) == "frame-2"
+
+
+def test_progress_one_selects_last_frame():
+    animator = SpriteAnimator(make_animation(5, fps=10, is_loop=False))
+
+    assert animator.frame_at_progress(1.0) == "frame-4"

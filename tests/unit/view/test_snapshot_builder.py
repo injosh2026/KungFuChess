@@ -9,6 +9,7 @@ from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 from kungfu_chess.realtime.state_timer import StateTimer
+from kungfu_chess.view.runtime_role import RuntimeRole
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
 
 
@@ -26,6 +27,13 @@ def create_game_state():
     board.add_piece(piece)
 
     return GameState(board)
+
+
+def recovery_runtime_progress(piece_id: int, timer: StateTimer):
+    progress = timer.progress(piece_id)
+    if progress is None:
+        return {}
+    return {RuntimeRole.RECOVERY: progress}
 
 
 def test_builder_creates_snapshot_from_game_state():
@@ -68,19 +76,19 @@ def test_builder_preserves_piece_information():
     assert piece.kind == PieceKind.ROOK
     assert piece.color == Color.WHITE
     assert piece.state == PieceState.IDLE
-    assert piece.state_progress is None
+    assert len(piece.runtime_progress) == 0
 
 
-def test_builder_sets_state_progress_none_without_active_timer():
+def test_builder_sets_runtime_progress_empty_without_active_timer():
 
     state = create_game_state()
 
     snapshot = SnapshotBuilder().build(state)
 
-    assert snapshot.pieces[0].state_progress is None
+    assert len(snapshot.pieces[0].runtime_progress) == 0
 
 
-def test_builder_reads_state_progress_from_provider():
+def test_builder_reads_recovery_runtime_progress_from_provider():
 
     state = create_game_state()
     piece = state.board.pieces_by_id[1]
@@ -89,11 +97,16 @@ def test_builder_reads_state_progress_from_provider():
     timer = StateTimer()
     timer.start(piece.id, 1000)
 
-    builder = SnapshotBuilder(get_state_progress=timer.progress)
+    builder = SnapshotBuilder(
+        get_runtime_progress=lambda piece_id: recovery_runtime_progress(
+            piece_id,
+            timer,
+        ),
+    )
     snapshot = builder.build(state)
 
     assert snapshot.pieces[0].state == "long_rest"
-    assert snapshot.pieces[0].state_progress == 0.0
+    assert snapshot.pieces[0].runtime_progress[RuntimeRole.RECOVERY] == 0.0
 
 
 def test_builder_reflects_partial_timer_progress():
@@ -106,13 +119,18 @@ def test_builder_reflects_partial_timer_progress():
     timer.start(piece.id, 1000)
     timer.advance(250)
 
-    builder = SnapshotBuilder(get_state_progress=timer.progress)
+    builder = SnapshotBuilder(
+        get_runtime_progress=lambda piece_id: recovery_runtime_progress(
+            piece_id,
+            timer,
+        ),
+    )
     snapshot = builder.build(state)
 
-    assert snapshot.pieces[0].state_progress == 0.25
+    assert snapshot.pieces[0].runtime_progress[RuntimeRole.RECOVERY] == 0.25
 
 
-def test_builder_sets_state_progress_none_after_timer_finishes():
+def test_builder_sets_runtime_progress_empty_after_timer_finishes():
 
     state = create_game_state()
     piece = state.board.pieces_by_id[1]
@@ -122,14 +140,19 @@ def test_builder_sets_state_progress_none_after_timer_finishes():
     timer.start(piece.id, 1000)
     timer.advance(1000)
 
-    builder = SnapshotBuilder(get_state_progress=timer.progress)
+    builder = SnapshotBuilder(
+        get_runtime_progress=lambda piece_id: recovery_runtime_progress(
+            piece_id,
+            timer,
+        ),
+    )
     snapshot = builder.build(state)
 
     assert snapshot.pieces[0].state == "idle"
-    assert snapshot.pieces[0].state_progress is None
+    assert len(snapshot.pieces[0].runtime_progress) == 0
 
 
-def test_state_progress_does_not_affect_visual_position():
+def test_runtime_progress_does_not_affect_visual_position():
     state = create_game_state()
     piece = state.board.pieces_by_id[1]
     piece.state = "long_rest"
@@ -146,11 +169,14 @@ def test_state_progress_does_not_affect_visual_position():
     timer.advance(250)
 
     snapshot = SnapshotBuilder(
-        get_state_progress=timer.progress,
+        get_runtime_progress=lambda piece_id: recovery_runtime_progress(
+            piece_id,
+            timer,
+        ),
     ).build(state, motions=(motion,))
 
     assert snapshot.pieces[0].state == "long_rest"
-    assert snapshot.pieces[0].state_progress == 0.25
+    assert snapshot.pieces[0].runtime_progress[RuntimeRole.RECOVERY] == 0.25
     assert snapshot.pieces[0].visual_position is not None
 
 

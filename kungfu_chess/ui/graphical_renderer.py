@@ -6,6 +6,7 @@ from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot
+from kungfu_chess.view.runtime_role import RuntimeRole
 from kungfu_chess.view.renderer import Renderer
 
 GAME_OVER_TEXT = "GAME OVER"
@@ -104,7 +105,8 @@ class GraphicalRenderer(Renderer):
         canvas: Img,
     ) -> None:
         for piece in snapshot.pieces:
-            if piece.state_progress is None:
+            recovery_progress = piece.runtime_progress.get(RuntimeRole.RECOVERY)
+            if recovery_progress is None:
                 continue
 
             x, y = self._piece_draw_position(piece)
@@ -113,7 +115,7 @@ class GraphicalRenderer(Renderer):
                 int(x),
                 int(y),
                 self._cell_size,
-                piece.state_progress,
+                recovery_progress,
             )
 
     def _piece_draw_position(self, piece: PieceSnapshot) -> tuple[float, float]:

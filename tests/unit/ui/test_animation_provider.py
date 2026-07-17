@@ -1,3 +1,5 @@
+from types import MappingProxyType
+
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.piece_state import PieceState
@@ -5,6 +7,7 @@ from kungfu_chess.model.position import Position
 from kungfu_chess.ui.animation_data import AnimationData
 from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.view.game_snapshot import PieceSnapshot
+from kungfu_chess.view.runtime_role import RuntimeRole
 
 FPS = 4
 FRAME_DURATION_MS = 250
@@ -98,3 +101,76 @@ def test_supports_any_state_name():
     provider.frame_for(make_piece("long_rest"))
 
     assert library.requests == [("QW", "long_rest")]
+
+
+def make_one_shot_piece(state="jump", active_ability_progress=0.0):
+    return PieceSnapshot(
+        piece_id=1,
+        kind=PieceKind.QUEEN,
+        color=Color.WHITE,
+        position=Position(0, 0),
+        state=state,
+        runtime_progress=MappingProxyType(
+            {RuntimeRole.ACTIVE_ABILITY: active_ability_progress},
+        ),
+    )
+
+
+def test_one_shot_progress_zero_selects_first_frame():
+    animation = make_animation(5, is_loop=False)
+    provider = AnimationProvider(FakeLibrary(animation), FakeClock())
+
+    frame = provider.frame_for(make_one_shot_piece(active_ability_progress=0.0))
+
+    assert frame is animation.frames[0]
+
+
+def test_one_shot_progress_middle_selects_middle_frame():
+    animation = make_animation(5, is_loop=False)
+    provider = AnimationProvider(FakeLibrary(animation), FakeClock())
+
+    frame = provider.frame_for(make_one_shot_piece(active_ability_progress=0.5))
+
+    assert frame is animation.frames[2]
+
+
+def test_one_shot_progress_one_selects_last_frame():
+    animation = make_animation(5, is_loop=False)
+    provider = AnimationProvider(FakeLibrary(animation), FakeClock())
+
+    frame = provider.frame_for(make_one_shot_piece(active_ability_progress=1.0))
+
+    assert frame is animation.frames[4]
+
+
+def test_looping_animation_ignores_active_ability_progress():
+    animation = make_animation(3, is_loop=True)
+    clock = FakeClock()
+    clock.elapsed = FRAME_DURATION_MS
+    provider = AnimationProvider(FakeLibrary(animation), clock)
+
+    frame = provider.frame_for(
+        make_one_shot_piece(state="idle", active_ability_progress=0.99)
+    )
+
+    assert frame is animation.frames[1]
+
+
+def test_one_shot_animation_ignores_recovery_progress():
+    animation = make_animation(5, is_loop=False)
+    clock = FakeClock()
+    clock.elapsed = FRAME_DURATION_MS * 2
+    provider = AnimationProvider(FakeLibrary(animation), clock)
+
+    piece = PieceSnapshot(
+        piece_id=1,
+        kind=PieceKind.QUEEN,
+        color=Color.WHITE,
+        position=Position(0, 0),
+        state="jump",
+        runtime_progress=MappingProxyType({RuntimeRole.RECOVERY: 0.5}),
+    )
+
+    frame = provider.frame_for(piece)
+
+    assert frame is animation.frames[2]

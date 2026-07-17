@@ -41,3 +41,16 @@ class SpriteAnimator:
             return index % frame_count
 
         return min(index, frame_count - 1)
+
+    def frame_at_progress(self, progress: float) -> Img:
+        frames = self._animation.frames
+
+        if not frames:
+            raise ValueError("Animation has no frames")
+
+        frame_count = len(frames)
+        if frame_count <= 1:
+            return frames[0]
+
+        index = min(int(progress * frame_count), frame_count - 1)
+        return frames[index]
