@@ -24,6 +24,7 @@ from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.pawn_end_handler import PawnEndHandler
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+from kungfu_chess.rules.jump_rule import JumpRule
 from kungfu_chess.rules.rule_engine import RuleEngine
 
 MAX_PASS_THROUGH_STEPS = 16
@@ -34,7 +35,8 @@ NO_PENDING_PAWN_PROMOTION = "no_pending_pawn_promotion"
 WRONG_PROMOTION_PIECE = "wrong_promotion_piece"
 INVALID_PROMOTION_CHOICE = "invalid_promotion_choice"
 PROMOTION_PIECE_NOT_FOUND = "promotion_piece_not_found"
-JUMP_NOT_IMPLEMENTED = "jump_not_implemented"
+JUMP_PIECE_NOT_FOUND = "jump_piece_not_found"
+JUMP_NOT_ALLOWED = "jump_not_allowed"
 
 
 class GameEngine:
@@ -60,6 +62,7 @@ class GameEngine:
         state_timer: StateTimer,
         collision_resolver: CollisionResolver | None = None,
         pawn_end_handler: PawnEndHandler | None = None,
+        jump_rule: JumpRule | None = None,
     ):
         self.game_state = game_state
         self.rule_engine = rule_engine
@@ -71,6 +74,7 @@ class GameEngine:
         self._state_timer = state_timer
         self._collision_resolver = collision_resolver or CollisionResolver()
         self._pawn_end_handler = pawn_end_handler
+        self._jump_rule = jump_rule or JumpRule()
 
     def request_move(self, source, destination) -> MoveResult:
 
@@ -109,13 +113,30 @@ class GameEngine:
         return MoveResult(True, "ok")
 
     def request_jump(self, piece_id: int) -> MoveResult:
-        """
-        Placeholder for a future in-place jump action.
+        if self.game_state.game_over:
+            return MoveResult(False, "game_over")
 
-        Jump logic, animation, and collision handling are not
-        implemented yet.
-        """
-        return MoveResult(False, JUMP_NOT_IMPLEMENTED)
+        if self.game_state.pending_pawn_promotion is not None:
+            return MoveResult(False, PENDING_PAWN_PROMOTION)
+
+        piece = self.game_state.board.get_piece_by_id(piece_id)
+        if piece is None:
+            return MoveResult(False, JUMP_PIECE_NOT_FOUND)
+
+        if self._state_timer.has_active_timer(piece.id):
+            return MoveResult(False, PIECE_IN_COOLDOWN)
+
+        if self.realtime_arbiter.has_motion(piece.id):
+            return MoveResult(False, PIECE_IN_MOTION)
+
+        if not self._jump_rule.can_jump(self.game_state, piece):
+            return MoveResult(False, JUMP_NOT_ALLOWED)
+
+        code = piece_code(piece.kind, piece.color)
+        piece.state = self._config_repository.get_jump_command_state(code)
+        self._settle_piece_state(piece)
+
+        return MoveResult(True, "ok")
 
     def active_motions(self):
         """

@@ -2,7 +2,6 @@ from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, StateConfig
 from kungfu_chess.engine.game_engine import (
     GameEngine,
-    JUMP_NOT_IMPLEMENTED,
     PENDING_PAWN_PROMOTION,
     PIECE_IN_COOLDOWN,
     PIECE_IN_MOTION,
@@ -21,6 +20,7 @@ from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.auto_promote_queen_handler import AutoPromoteQueenHandler
 from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
+from kungfu_chess.rules.jump_rule import JumpRule
 from kungfu_chess.rules.move_validation import MoveValidation
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 
@@ -62,15 +62,44 @@ class FakeMotionFactory:
         )
 
 
+class TrackingMotionFactory:
+
+    def __init__(self):
+        self.calls = []
+
+    def create(self, piece, source, target):
+        self.calls.append((piece.id, source, target))
+        return Motion(
+            piece.id,
+            source,
+            target,
+            duration_ms=1000,
+        )
+
+
 class FakeConfigRepository:
 
-    def __init__(self, move_command_state="move"):
+    def __init__(self, move_command_state="move", jump_command_state="jump"):
         self.move_command_state = move_command_state
+        self.jump_command_state = jump_command_state
 
     def get_move_command_state(self, piece_code):
         return self.move_command_state
 
+    def get_jump_command_state(self, piece_code):
+        return self.jump_command_state
+
     def load_state(self, piece_code, state_name):
+        if state_name == "jump":
+            return StateConfig(
+                physics=PhysicsConfig(
+                    speed_m_per_sec=3.0,
+                    next_state_when_finished="short_rest",
+                    duration_ms=500,
+                ),
+                graphics=GraphicsConfig(frames_per_sec=8, is_loop=False),
+            )
+
         return StateConfig(
             physics=PhysicsConfig(
                 speed_m_per_sec=0.0,
@@ -171,22 +200,94 @@ def test_valid_move_returns_ok():
     assert rule_engine.called is True
 
 
-def test_request_jump_is_placeholder_and_does_not_change_game_state():
-    engine, state, rule_engine = create_engine(MoveValidation(True, "ok"))
-    piece = state.board.pieces_by_id[1]
-    original_cell = piece.cell
-    original_state = piece.state
-    original_kind = piece.kind
+def create_jump_engine(motion_factory=None):
+    board = Board(8, 8)
+    piece = Piece(
+        id=1,
+        color=Color.WHITE,
+        kind=PieceKind.KNIGHT,
+        cell=Position(0, 0),
+    )
+    board.add_piece(piece)
+    state = GameState(board)
+    motion_factory = motion_factory or TrackingMotionFactory()
+
+    engine = GameEngine(
+        state,
+        FakeRuleEngine(MoveValidation(True, "ok")),
+        RealTimeArbiter(),
+        motion_factory,
+        FakeStateTransitionResolver(),
+        FakeConfigRepository(),
+        FakeStateTimer(),
+        jump_rule=JumpRule(),
+    )
+    return engine, state, piece, motion_factory
+
+
+def test_request_jump_sets_jump_state():
+    engine, state, piece, _ = create_jump_engine()
+
+    result = engine.request_jump(piece.id)
+
+    assert result.is_accepted is True
+    assert piece.state == PieceState.JUMP
+    assert piece.cell == Position(0, 0)
+    assert piece.has_moved is False
+
+
+def test_request_jump_does_not_create_motion():
+    motion_factory = TrackingMotionFactory()
+    engine, _, piece, motion_factory = create_jump_engine(motion_factory)
+
+    engine.request_jump(piece.id)
+
+    assert motion_factory.calls == []
+    assert engine.realtime_arbiter.has_motion(piece.id) is False
+
+
+def test_jump_does_not_move_piece():
+    engine, state, piece, _ = create_jump_engine()
+    board_snapshot = {
+        position: board_piece.id
+        for position, board_piece in state.board.pieces_by_position.items()
+    }
+
+    engine.request_jump(piece.id)
+
+    assert {
+        position: board_piece.id
+        for position, board_piece in state.board.pieces_by_position.items()
+    } == board_snapshot
+    assert state.board.get_piece_by_position(piece.cell) is piece
+
+
+def test_request_jump_rejected_while_promotion_pending():
+    engine, state, piece, _ = create_jump_engine()
+    state.pending_pawn_promotion = PendingPawnPromotion(
+        piece_id=99,
+        allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
+    )
 
     result = engine.request_jump(piece.id)
 
     assert result.is_accepted is False
-    assert result.reason == JUMP_NOT_IMPLEMENTED
-    assert piece.cell == original_cell
-    assert piece.state == original_state
-    assert piece.kind == original_kind
-    assert state.pending_pawn_promotion is None
-    assert rule_engine.called is False
+    assert result.reason == PENDING_PAWN_PROMOTION
+    assert piece.state == PieceState.IDLE
+
+
+def test_request_jump_rejected_while_piece_is_in_motion():
+    engine, state, piece, _ = create_jump_engine()
+
+    engine.realtime_arbiter.start_motion(
+        Motion(1, Position(0, 0), Position(0, 1), duration_ms=1000)
+    )
+
+    result = engine.request_jump(piece.id)
+
+    assert result.is_accepted is False
+    assert result.reason == PIECE_IN_MOTION
+    assert piece.state == PieceState.IDLE
 
 
 def test_invalid_move_returns_reason():
@@ -482,7 +583,7 @@ PIECE_CODE = "RW"
 
 
 def write_piece_defaults(root: Path) -> None:
-    defaults = {"initial_state": "idle", "move_command_state": "move"}
+    defaults = {"initial_state": "idle", "move_command_state": "move", "jump_command_state": "jump"}
     defaults_path = root / "pieces2" / "piece_defaults.json"
     defaults_path.parent.mkdir(parents=True, exist_ok=True)
     defaults_path.write_text(
@@ -522,6 +623,14 @@ def create_configured_engine(
     write_piece_defaults(root)
     write_state_config(root, PIECE_CODE, "idle", "idle", speed=0.0)
     write_state_config(root, PIECE_CODE, "move", move_next_state)
+    write_state_config(
+        root,
+        PIECE_CODE,
+        "jump",
+        "short_rest",
+        speed=3.0,
+        duration_ms=500,
+    )
     for state_name, next_state, speed, duration_ms in extra_states:
         write_state_config(
             root,
@@ -936,6 +1045,14 @@ def test_other_piece_can_move_while_piece_is_in_cooldown(tmp_path):
         "idle",
         speed=0.0,
         duration_ms=1000,
+    )
+    write_state_config(
+        tmp_path,
+        PIECE_CODE,
+        "jump",
+        "short_rest",
+        speed=3.0,
+        duration_ms=500,
     )
 
     board = Board(8, 8)

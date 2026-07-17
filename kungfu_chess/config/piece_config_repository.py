@@ -68,6 +68,9 @@ class PieceConfigRepository:
     def get_move_command_state(self, piece_code: str) -> str:
         return self._load_piece_manifest(piece_code).move_command_state
 
+    def get_jump_command_state(self, piece_code: str) -> str:
+        return self._load_piece_manifest(piece_code).jump_command_state
+
     def _load_piece_manifest(self, piece_code: str) -> PieceManifest:
         if piece_code in self._piece_manifest_cache:
             return self._piece_manifest_cache[piece_code]
@@ -87,6 +90,7 @@ class PieceConfigRepository:
         manifest = PieceManifest(
             initial_state=data["initial_state"],
             move_command_state=data["move_command_state"],
+            jump_command_state=data["jump_command_state"],
         )
         self._piece_manifest_cache[piece_code] = manifest
         return manifest
@@ -141,7 +145,16 @@ class PieceConfigRepository:
                 f"Missing move_command_state in piece manifest for {piece_code}"
             )
 
-        for state_name in (data["initial_state"], data["move_command_state"]):
+        if "jump_command_state" not in data:
+            raise InvalidConfigError(
+                f"Missing jump_command_state in piece manifest for {piece_code}"
+            )
+
+        for state_name in (
+            data["initial_state"],
+            data["move_command_state"],
+            data["jump_command_state"],
+        ):
             if not self.state_exists(piece_code, state_name):
                 raise InvalidConfigError(
                     f"Unknown state '{state_name}' in piece manifest for {piece_code}"

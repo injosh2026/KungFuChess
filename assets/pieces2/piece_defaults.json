@@ -1,4 +1,5 @@
 {
   "initial_state": "idle",
-  "move_command_state": "move"
+  "move_command_state": "move",
+  "jump_command_state": "jump"
 }

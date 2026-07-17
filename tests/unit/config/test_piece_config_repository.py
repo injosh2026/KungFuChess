@@ -59,6 +59,12 @@ def test_get_move_command_state_from_defaults():
     assert repository.get_move_command_state("QW") == "move"
 
 
+def test_get_jump_command_state_from_defaults():
+    repository = PieceConfigRepository(Path("assets"))
+
+    assert repository.get_jump_command_state("QW") == "jump"
+
+
 def test_load_state_returns_cached_instance():
     repository = PieceConfigRepository(Path("assets"))
 

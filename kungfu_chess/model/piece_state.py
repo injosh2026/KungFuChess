@@ -9,5 +9,6 @@ class PieceState:
 
     IDLE = "idle"
     MOVING = "move"
+    JUMP = "jump"
     LONG_REST = "long_rest"
     CAPTURED = "captured"
