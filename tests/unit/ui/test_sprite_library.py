@@ -10,10 +10,17 @@ STATE = "move"
 class FakeImage:
     def __init__(self):
         self.read_calls = []
+        self.draw_on_calls = []
 
     def read(self, path, size=None, keep_aspect=False):
         self.read_calls.append((path, size, keep_aspect))
         return self
+
+    def draw_on(self, other, x, y):
+        self.draw_on_calls.append((other, x, y))
+
+    def create_blank(self, width, height, color):
+        return FakeImage()
 
 
 class FakeImageFactory:
@@ -43,7 +50,6 @@ def build_assets(tmp_path, frame_numbers, config):
         encoding="utf-8"
     )
 
-    # create next state required by validation
     long_rest_dir = piece_root / "states" / "long_rest"
     long_rest_dir.mkdir(parents=True)
 
@@ -121,8 +127,34 @@ def test_get_animation_is_cached(tmp_path):
 def test_background_is_fresh_per_call(tmp_path):
     library, factory = make_library(tmp_path, [1])
 
-    first = library.background()
-    second = library.background()
+    first = library.background(800, 600, (0, 0))
+    second = library.background(800, 600, (0, 0))
 
     assert first is not second
-    assert first.read_calls[0][1] is None
+
+
+def test_background_uses_canvas_size_and_board_origin(tmp_path):
+    pieces_root, board_path = build_assets(tmp_path, [1], DEFAULT_CONFIG)
+    factory = FakeImageFactory()
+    library = SpriteLibrary(
+        pieces_root,
+        board_path,
+        CELL_SIZE,
+        factory,
+    )
+
+    library.background(800, 600, (180, 12))
+
+    board_image = factory.instances[-1]
+    assert len(board_image.draw_on_calls) == 1
+    assert board_image.draw_on_calls[0][1:] == (180, 12)
+
+
+def test_set_display_cell_size_clears_animation_cache(tmp_path):
+    library, _ = make_library(tmp_path, [1, 2])
+
+    first = library.get_animation(CODE, STATE)
+    library.set_display_cell_size(CELL_SIZE + 10)
+    second = library.get_animation(CODE, STATE)
+
+    assert first is not second

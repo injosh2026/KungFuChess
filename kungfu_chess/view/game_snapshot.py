@@ -5,9 +5,11 @@ from types import MappingProxyType
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
+from kungfu_chess.view.move_history_entry import MoveHistoryEntry
 from kungfu_chess.view.runtime_role import RuntimeRole
 
 EMPTY_RUNTIME_PROGRESS: Mapping[RuntimeRole, float] = MappingProxyType({})
+EMPTY_PLAYER_SCORES: Mapping[str, int] = MappingProxyType({})
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,3 +62,5 @@ class GameSnapshot:
     game_over: bool
     winner: Color | None = None
     pending_promotion: PromotionSnapshot | None = None
+    move_history: tuple[MoveHistoryEntry, ...] = ()
+    player_scores: Mapping[str, int] = EMPTY_PLAYER_SCORES

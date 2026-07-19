@@ -13,6 +13,8 @@ from kungfu_chess.engine.collision_decisions import (
 from kungfu_chess.engine.collision_resolver import CollisionResolver
 from kungfu_chess.engine.jump_duration_resolver import JumpDurationResolver
 from kungfu_chess.engine.jump_window_tracker import JumpWindowTracker
+from kungfu_chess.events.event_bus import EventBus
+from kungfu_chess.events.move_performed_event import MovePerformedEvent
 from kungfu_chess.view.runtime_role import RuntimeRole
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.move_result import MoveResult
@@ -69,6 +71,7 @@ class GameEngine:
         pawn_end_handler: PawnEndHandler | None = None,
         jump_rule: JumpRule | None = None,
         jump_duration_resolver: JumpDurationResolver | None = None,
+        event_bus: EventBus | None = None,
     ):
         self.game_state = game_state
         self.rule_engine = rule_engine
@@ -85,6 +88,8 @@ class GameEngine:
         )
         self._pawn_end_handler = pawn_end_handler
         self._jump_rule = jump_rule or JumpRule()
+        self._event_bus = event_bus or EventBus()
+        self._game_elapsed_ms = 0
 
     def request_move(self, source, destination) -> MoveResult:
 
@@ -169,6 +174,8 @@ class GameEngine:
         Completed motions are resolved when their duration expires.
         The board is updated only when motions arrive at their target.
         """
+        self._game_elapsed_ms += milliseconds
+
         active_timers = frozenset(self._state_timer.active_piece_ids())
 
         captured_pieces = []
@@ -421,7 +428,10 @@ class GameEngine:
         piece = self.game_state.board.pieces_by_id.get(motion.piece_id)
         if piece is not None:
             piece.has_moved = True
-            blocks_transition = self._apply_pawn_end_outcome(piece, arrival_cell)
+            blocks_transition, promotion_kind = self._apply_pawn_end_outcome(
+                piece,
+                arrival_cell,
+            )
             if not blocks_transition:
                 self._transition_piece(piece)
             self._set_piece_occupied_cell(
@@ -431,10 +441,52 @@ class GameEngine:
                 arrival_cell,
                 STATIONARY_ENTRY_TIME_MS,
             )
+            self._publish_move_performed(
+                motion=motion,
+                arrival_cell=arrival_cell,
+                captured=captured,
+                promotion_kind=promotion_kind,
+            )
 
-    def _apply_pawn_end_outcome(self, piece: Piece, landing_cell: Position) -> bool:
+    def _publish_move_performed(
+        self,
+        *,
+        motion: Motion,
+        arrival_cell: Position,
+        captured: Piece | None,
+        promotion_kind: PieceKind | None,
+    ) -> None:
+        piece = self.game_state.board.get_piece_by_id(motion.piece_id)
+        if piece is None:
+            return
+
+        capture_code = None
+        if captured is not None:
+            capture_code = piece_code(captured.kind, captured.color)
+
+        promotion = promotion_kind.value if promotion_kind is not None else None
+
+        self._event_bus.publish(
+            MovePerformedEvent(
+                timestamp_ms=self._game_elapsed_ms,
+                piece_id=piece.id,
+                piece_code=piece_code(piece.kind, piece.color),
+                piece_name=piece.kind.value,
+                from_position=motion.start,
+                to_position=arrival_cell,
+                capture=capture_code,
+                promotion=promotion,
+                jump_used=False,
+            )
+        )
+
+    def _apply_pawn_end_outcome(
+        self,
+        piece: Piece,
+        landing_cell: Position,
+    ) -> tuple[bool, PieceKind | None]:
         if self._pawn_end_handler is None:
-            return False
+            return False, None
 
         outcome = self._pawn_end_handler.resolve(
             piece,
@@ -447,14 +499,14 @@ class GameEngine:
                 piece_id=piece.id,
                 allowed_kinds=outcome.pending_choice_kinds,
             )
-            return outcome.blocks_state_transition
+            return outcome.blocks_state_transition, None
 
         if outcome.new_kind is None:
-            return False
+            return False, None
 
         piece.kind = outcome.new_kind
         piece.state = PieceState.IDLE
-        return outcome.blocks_state_transition
+        return outcome.blocks_state_transition, outcome.new_kind
 
     @staticmethod
     def _clear_piece_from_occupied_cells(

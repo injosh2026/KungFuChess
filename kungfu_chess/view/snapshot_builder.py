@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import MappingProxyType
 
 from kungfu_chess.model.game_state import GameState
@@ -10,6 +10,7 @@ from kungfu_chess.view.game_snapshot import (
     PieceSnapshot,
     PromotionSnapshot,
 )
+from kungfu_chess.view.move_history_entry import MoveHistoryEntry
 from kungfu_chess.view.runtime_role import RuntimeRole
 
 
@@ -31,6 +32,8 @@ class SnapshotBuilder:
         get_runtime_progress: Callable[
             [int], Mapping[RuntimeRole, float]
         ] | None = None,
+        get_move_history: Callable[[], Sequence[MoveHistoryEntry]] | None = None,
+        get_player_scores: Callable[[], Mapping[str, int]] | None = None,
     ):
         self._visual_position_calculator = (
             visual_position_calculator or VisualPositionCalculator(100)
@@ -38,6 +41,8 @@ class SnapshotBuilder:
         self._get_runtime_progress = get_runtime_progress or (
             lambda _piece_id: EMPTY_RUNTIME_PROGRESS
         )
+        self._get_move_history = get_move_history or (lambda: ())
+        self._get_player_scores = get_player_scores or (lambda: {})
 
     def build(
         self,
@@ -109,6 +114,8 @@ class SnapshotBuilder:
             game_over=game_state.game_over,
             winner=game_state.winner,
             pending_promotion=pending_promotion,
+            move_history=tuple(self._get_move_history()),
+            player_scores=MappingProxyType(dict(self._get_player_scores())),
         )
 
     @staticmethod

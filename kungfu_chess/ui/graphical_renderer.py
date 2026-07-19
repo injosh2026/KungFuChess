@@ -1,7 +1,15 @@
-from typing import Callable
+from collections.abc import Callable
 
 from img import Img
 from kungfu_chess.model.position import Position
+from kungfu_chess.ui.board_coordinates_renderer import BoardCoordinatesRenderer
+from kungfu_chess.ui.game_ui_layout import BOOTSTRAP_VIEWPORT, GameUILayout, layout_for_canvas_size_provider
+from kungfu_chess.ui.move_history_panel import (
+    MoveHistoryPanel,
+    filter_history_by_piece_code_suffix,
+)
+from kungfu_chess.ui.player_panel import PlayerPanel
+from kungfu_chess.ui.player_panel_data import PlayerPanelConfig, PlayerPanelData
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
@@ -16,7 +24,6 @@ OVERLAY_TEXT_THICKNESS = 3
 
 SELECTION_BORDER_COLOR = (0, 255, 255, 255)
 SELECTION_BORDER_THICKNESS = 6
-NO_OFFSET = (0, 0)
 
 LEGAL_MOVE_ALPHA = 0.25
 
@@ -30,51 +37,84 @@ class GraphicalRenderer(Renderer):
     injected frame provider for a ready-to-draw frame; it does not select
     states or advance animation itself.
 
-    Draw order: background, legal moves, state progress overlays, pieces,
-    selection, game over. Overlays are drawn beneath piece sprites so the
-    piece remains visible while the cell fill drains over time.
+    Layout is recalculated every frame from the current canvas size. When the
+    window size is not yet available from OpenCV, a bootstrap viewport is used
+    for that frame only; after the first present, the real window size is used.
     """
 
     def __init__(
         self,
         sprite_library: SpriteLibrary,
-        cell_size: int,
+        canvas_size_provider: Callable[[], tuple[int, int]],
         frame_provider: Callable[[PieceSnapshot], Img],
         state_progress_overlay: StateProgressOverlay,
         promotion_picker_overlay: PromotionPickerOverlay,
-        board_offset: tuple[int, int] = NO_OFFSET,
+        white_history_panel: MoveHistoryPanel,
+        black_history_panel: MoveHistoryPanel,
+        board_coordinates_renderer: BoardCoordinatesRenderer,
+        player_panel: PlayerPanel,
+        left_player_panel: PlayerPanelConfig,
+        right_player_panel: PlayerPanelConfig,
     ):
-        """
-        Creates a graphical renderer.
-
-        Args:
-            sprite_library:
-                Source of the board background canvas.
-
-            cell_size:
-                Size in pixels of a single board cell.
-
-            frame_provider:
-                Callable that returns the ready frame to draw for a
-                given piece snapshot.
-
-            state_progress_overlay:
-                Draws a visual effect when a piece snapshot carries
-                timed-state progress.
-
-            board_offset:
-                Pixel (x, y) offset of the board's top-left corner inside
-                the canvas, used to leave a margin around the board.
-        """
         self._sprite_library = sprite_library
-        self._cell_size = cell_size
+        self._canvas_size_provider = canvas_size_provider
         self._frame_provider = frame_provider
         self._state_progress_overlay = state_progress_overlay
         self._promotion_picker_overlay = promotion_picker_overlay
-        self._board_offset = board_offset
+        self._white_history_panel = white_history_panel
+        self._black_history_panel = black_history_panel
+        self._board_coordinates_renderer = board_coordinates_renderer
+        self._player_panel = player_panel
+        self._left_player_panel = left_player_panel
+        self._right_player_panel = right_player_panel
+        self._layout = GameUILayout.from_canvas_size(*BOOTSTRAP_VIEWPORT)
+        self._cell_size = self._layout.display_cell_size
+
+    @property
+    def layout(self) -> GameUILayout:
+        return self._layout
+
+    def _resolve_canvas_size(self) -> tuple[int, int]:
+        try:
+            return self._canvas_size_provider()
+        except ValueError:
+            return BOOTSTRAP_VIEWPORT
 
     def render(self, snapshot: GameSnapshot) -> Img:
-        canvas = self._sprite_library.background()
+        layout = layout_for_canvas_size_provider(self._canvas_size_provider)
+        canvas_width, canvas_height = layout.canvas_size
+        self._layout = layout
+        self._cell_size = layout.display_cell_size
+        self._sprite_library.set_display_cell_size(layout.display_cell_size)
+
+        canvas = self._sprite_library.background(
+            canvas_width,
+            canvas_height,
+            layout.board_offset,
+        )
+
+        self._player_panel.draw(
+            canvas,
+            PlayerPanelData(
+                self._left_player_panel.name,
+                snapshot.player_scores.get(self._left_player_panel.player_id, 0),
+            ),
+            layout.header_left_rect,
+        )
+        self._player_panel.draw(
+            canvas,
+            PlayerPanelData(
+                self._right_player_panel.name,
+                snapshot.player_scores.get(self._right_player_panel.player_id, 0),
+            ),
+            layout.header_right_rect,
+        )
+
+        self._board_coordinates_renderer.draw(
+            canvas,
+            layout.board_rect,
+            layout.display_cell_size,
+        )
 
         self._draw_legal_moves(snapshot.legal_moves, canvas)
 
@@ -89,14 +129,38 @@ class GraphicalRenderer(Renderer):
             self._draw_game_over(canvas)
 
         if snapshot.pending_promotion is not None:
-            self._promotion_picker_overlay.draw(canvas, snapshot.pending_promotion)
+            self._promotion_picker_overlay.draw(
+                canvas,
+                snapshot.pending_promotion,
+                canvas_width,
+                canvas_height,
+            )
+
+        white_history = filter_history_by_piece_code_suffix(
+            snapshot.move_history,
+            "W",
+        )
+        black_history = filter_history_by_piece_code_suffix(
+            snapshot.move_history,
+            "B",
+        )
+        self._white_history_panel.draw(
+            canvas,
+            white_history,
+            layout.left_sidebar_rect,
+        )
+        self._black_history_panel.draw(
+            canvas,
+            black_history,
+            layout.right_sidebar_rect,
+        )
 
         return canvas
 
     def _draw_pieces(self, snapshot: GameSnapshot, canvas: Img) -> None:
         for piece in snapshot.pieces:
             frame = self._frame_provider(piece)
-            x, y = self._piece_draw_position(piece)
+            x, y = self._sprite_draw_position(piece, frame)
             frame.draw_on(canvas, int(x), int(y))
 
     def _draw_state_progress_overlays(
@@ -109,7 +173,7 @@ class GraphicalRenderer(Renderer):
             if recovery_progress is None:
                 continue
 
-            x, y = self._piece_draw_position(piece)
+            x, y = self._cell_to_pixel(piece)
             self._state_progress_overlay.draw(
                 canvas,
                 int(x),
@@ -118,10 +182,36 @@ class GraphicalRenderer(Renderer):
                 recovery_progress,
             )
 
-    def _piece_draw_position(self, piece: PieceSnapshot) -> tuple[float, float]:
+    def _sprite_draw_position(
+        self,
+        piece: PieceSnapshot,
+        frame: Img,
+    ) -> tuple[float, float]:
         if piece.visual_position is not None:
-            return piece.visual_position
+            return self._visual_center_to_canvas_origin(
+                piece.visual_position,
+                frame,
+            )
         return self._cell_to_pixel(piece)
+
+    def _visual_center_to_canvas_origin(
+        self,
+        board_local_center: tuple[float, float],
+        frame: Img,
+    ) -> tuple[float, float]:
+        sprite_width, sprite_height = self._frame_size(frame)
+        offset_x, offset_y = self._layout.board_offset
+        center_x, center_y = board_local_center
+        return (
+            offset_x + center_x - sprite_width / 2,
+            offset_y + center_y - sprite_height / 2,
+        )
+
+    def _frame_size(self, frame: Img) -> tuple[int, int]:
+        if frame.img is not None:
+            height, width = frame.img.shape[:2]
+            return width, height
+        return self._cell_size, self._cell_size
 
     def _draw_selection(self, cell: Position, canvas: Img) -> None:
         x, y = self._cell_origin(cell.row, cell.col)
@@ -135,10 +225,11 @@ class GraphicalRenderer(Renderer):
         )
 
     def _draw_game_over(self, canvas: Img) -> None:
+        board_x, board_y = self._layout.board_offset
         canvas.put_text(
             GAME_OVER_TEXT,
-            self._cell_size,
-            self._cell_size,
+            board_x + self._cell_size,
+            board_y + self._cell_size,
             OVERLAY_FONT_SIZE,
             OVERLAY_TEXT_COLOR,
             OVERLAY_TEXT_THICKNESS,
@@ -148,7 +239,7 @@ class GraphicalRenderer(Renderer):
         return self._cell_origin(piece.position.row, piece.position.col)
 
     def _cell_origin(self, row: int, col: int) -> tuple[int, int]:
-        offset_x, offset_y = self._board_offset
+        offset_x, offset_y = self._layout.board_offset
         x = offset_x + col * self._cell_size
         y = offset_y + row * self._cell_size
         return x, y

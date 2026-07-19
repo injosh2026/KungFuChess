@@ -9,6 +9,7 @@ from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 from kungfu_chess.realtime.state_timer import StateTimer
+from kungfu_chess.view.move_history_entry import MoveHistoryEntry
 from kungfu_chess.view.runtime_role import RuntimeRole
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
 
@@ -319,3 +320,45 @@ def test_builder_pending_promotion_snapshot_exposes_piece_id_and_allowed_kinds()
 
     assert snapshot.pending_promotion.piece_id == piece.id
     assert snapshot.pending_promotion.allowed_kinds == allowed_kinds
+
+
+def test_builder_copies_move_history_from_provider():
+    history = (
+        MoveHistoryEntry(
+            elapsed_time_ms=1000,
+            piece_code="PW",
+            piece_name="pawn",
+            from_square="e2",
+            to_square="e4",
+        ),
+    )
+    state = create_game_state()
+
+    snapshot = SnapshotBuilder(get_move_history=lambda: history).build(state)
+
+    assert snapshot.move_history == history
+
+
+def test_builder_defaults_to_empty_move_history():
+    state = create_game_state()
+
+    snapshot = SnapshotBuilder().build(state)
+
+    assert snapshot.move_history == ()
+
+
+def test_builder_copies_player_scores_from_provider():
+    state = create_game_state()
+    scores = {"W": 5, "B": 3}
+
+    snapshot = SnapshotBuilder(get_player_scores=lambda: scores).build(state)
+
+    assert snapshot.player_scores == scores
+
+
+def test_builder_defaults_to_empty_player_scores():
+    state = create_game_state()
+
+    snapshot = SnapshotBuilder().build(state)
+
+    assert snapshot.player_scores == {}

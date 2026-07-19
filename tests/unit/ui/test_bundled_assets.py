@@ -29,7 +29,7 @@ def make_library() -> SpriteLibrary:
 
 
 def test_bundled_board_loads():
-    canvas = make_library().background()
+    canvas = make_library().background_at_original_size()
 
     assert canvas.img is not None
 

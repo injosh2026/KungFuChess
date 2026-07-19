@@ -5,7 +5,7 @@ from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 
-WINDOW_SIZE = (800, 800)
+CANVAS_SIZE = (800, 800)
 
 
 class FakeController:
@@ -24,18 +24,19 @@ class FakeController:
 
 def create_router(pending=None):
     controller = FakeController()
-    picker = PromotionPickerOverlay(*WINDOW_SIZE)
+    picker = PromotionPickerOverlay()
     router = ClickRouter(
         controller,
         picker,
         lambda: pending,
         lambda x, y: controller.handle_click(x, y),
+        lambda: CANVAS_SIZE,
     )
     return router, controller, picker
 
 
 def _click_center_of_kind(picker, allowed_kinds, kind):
-    _, _, _, _, buttons = picker._layout(allowed_kinds)
+    _, _, _, _, buttons = picker._layout(allowed_kinds, *CANVAS_SIZE)
     for button_kind, x, y, width, height in buttons:
         if button_kind == kind:
             return x + width // 2, y + height // 2

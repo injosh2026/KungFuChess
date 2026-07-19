@@ -26,12 +26,28 @@ class FakeImage:
     def __init__(self):
         self.opened = False
         self.closed = False
+        self.handler = None
 
     def open_window(self):
         self.opened = True
 
+    def prime_window(self):
+        return None
+
+    def set_click_handler(self, handler):
+        self.handler = handler
+
     def close(self):
         self.closed = True
+
+
+class FakeMouseInput:
+    def __init__(self):
+        self.attached_image = None
+
+    def attach(self, image):
+        self.attached_image = image
+        image.set_click_handler(lambda x, y: None)
 
 
 class FakeRenderer:
@@ -98,19 +114,28 @@ class RaisingRenderer:
 def make_app(stop_after=STOP_AFTER, selected=SELECTED):
     canvas = FakeCanvas(stop_after)
     image = FakeImage()
+    mouse_input = FakeMouseInput()
     renderer = FakeRenderer(canvas)
     builder = FakeSnapshotBuilder()
     engine = FakeGameEngine(GAME_STATE)
     controller = FakeController(selected)
     clock = FakeClock(CLOCK_SEQUENCE)
 
-    app = GameApp(engine, controller, builder, renderer, image, clock, object())
+    app = GameApp(
+        engine,
+        controller,
+        builder,
+        renderer,
+        image,
+        clock,
+        mouse_input,
+    )
 
-    return app, canvas, image, renderer, builder, engine
+    return app, canvas, image, renderer, builder, engine, mouse_input
 
 
 def test_opens_and_closes_window():
-    app, _, image, _, _, _ = make_app()
+    app, _, image, _, _, _, _ = make_app()
 
     app.run()
 
@@ -118,8 +143,17 @@ def test_opens_and_closes_window():
     assert image.closed is True
 
 
+def test_attaches_mouse_input_after_window_is_ready():
+    app, _, image, _, _, _, mouse_input = make_app()
+
+    app.run()
+
+    assert mouse_input.attached_image is image
+    assert image.handler is not None
+
+
 def test_advances_engine_with_time_deltas():
-    app, _, _, _, _, engine = make_app()
+    app, _, _, _, _, engine, _ = make_app()
 
     app.run()
 
@@ -127,7 +161,7 @@ def test_advances_engine_with_time_deltas():
 
 
 def test_builds_snapshot_from_state_and_selection():
-    app, _, _, _, builder, _ = make_app()
+    app, _, _, _, builder, _, _ = make_app()
 
     app.run()
 
@@ -135,7 +169,7 @@ def test_builds_snapshot_from_state_and_selection():
 
 
 def test_renders_and_presents_each_iteration():
-    app, canvas, _, renderer, _, _ = make_app()
+    app, canvas, _, renderer, _, _, _ = make_app()
 
     app.run()
 
@@ -145,6 +179,7 @@ def test_renders_and_presents_each_iteration():
 
 def test_closes_window_on_unexpected_error():
     image = FakeImage()
+    mouse_input = FakeMouseInput()
     engine = FakeGameEngine(GAME_STATE)
     app = GameApp(
         engine,
@@ -153,7 +188,7 @@ def test_closes_window_on_unexpected_error():
         RaisingRenderer(),
         image,
         FakeClock(CLOCK_SEQUENCE),
-        object(),
+        mouse_input,
     )
 
     with pytest.raises(ValueError):

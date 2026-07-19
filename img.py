@@ -18,7 +18,18 @@ class Cv2Window:
     """
 
     def create(self, title: str) -> None:
-        cv2.namedWindow(title)
+        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+
+    def read_size(self, title: str) -> tuple[int, int] | None:
+        try:
+            _, _, width, height = cv2.getWindowImageRect(title)
+        except cv2.error:
+            return None
+
+        if width <= 0 or height <= 0:
+            return None
+
+        return width, height
 
     def show(self, title: str, image) -> None:
         cv2.imshow(title, image)
@@ -142,6 +153,20 @@ class Img:
     def open_window(self, title: str = DEFAULT_WINDOW_TITLE) -> None:
         self._title = title
         self._window.create(title)
+
+    def canvas_size(self) -> tuple[int, int]:
+        if self.img is not None:
+            height, width = self.img.shape[:2]
+            return width, height
+
+        window_size = self._window.read_size(self._title)
+        if window_size is not None:
+            return window_size
+
+        raise ValueError("Canvas size is not available yet.")
+
+    def prime_window(self) -> None:
+        self._window.pump(1)
 
     def present(self, wait_ms: int = 1) -> None:
         if self.img is None:

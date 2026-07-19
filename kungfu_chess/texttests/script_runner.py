@@ -30,7 +30,7 @@ class ScriptRunner:
 
         self.board = parser.parse(lines)
 
-        self.controller, self.game_engine = GameFactory.create(self.board)
+        self.controller, self.game_engine, _, _ = GameFactory.create(self.board)
 
     def handle_click(self, x: int, y: int):
         """

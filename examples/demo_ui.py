@@ -27,30 +27,38 @@ from kungfu_chess.engine.game_factory import GameFactory
 from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.animation_provider import AnimationProvider
+from kungfu_chess.ui.composition_root import (
+    CanvasSizedVisualPositionCalculator,
+    SPRITE_LIBRARY_BOOTSTRAP_CELL_SIZE,
+)
+from kungfu_chess.ui.board_coordinates_renderer import BoardCoordinatesRenderer
 from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
+from kungfu_chess.ui.move_history_panel import MoveHistoryPanel
+from kungfu_chess.ui.player_panel import PlayerPanel
+from kungfu_chess.ui.player_panel_data import PlayerPanelConfig
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
 from kungfu_chess.config.demo_config import (
     ASSETS_ROOT,
-    CELL_SIZE,
     BOARD_FILENAME,
     PIECE_SET,
     PRESENT_WAIT_MS,
     STARTING_BOARD,
 )
-from kungfu_chess.view.visual_position import VisualPositionCalculator
 
 
-def build_snapshot():
+def build_snapshot(canvas_size_provider):
     board = BoardParser().parse(STARTING_BOARD)
-    _, game_engine = GameFactory.create(board)
-    calculator = VisualPositionCalculator(CELL_SIZE)
+    _, game_engine, move_history_observer, score_observer = GameFactory.create(board)
+    calculator = CanvasSizedVisualPositionCalculator(canvas_size_provider)
 
     return SnapshotBuilder(
         calculator,
         get_runtime_progress=game_engine.runtime_progress,
+        get_move_history=move_history_observer.entries,
+        get_player_scores=score_observer.scores,
     ).build(game_engine.game_state)
 
 
@@ -58,21 +66,35 @@ def main() -> None:
     pieces_root = ASSETS_ROOT / PIECE_SET
     board_path = ASSETS_ROOT / BOARD_FILENAME
 
-    library = SpriteLibrary(pieces_root, board_path, CELL_SIZE)
+    window = Img()
+    window.open_window()
+    window.prime_window()
+
+    canvas_size = window.canvas_size
+
+    library = SpriteLibrary(
+        pieces_root,
+        board_path,
+        SPRITE_LIBRARY_BOOTSTRAP_CELL_SIZE,
+    )
     clock = AnimationClock()
     provider = AnimationProvider(library, clock)
     renderer = GraphicalRenderer(
         library,
-        CELL_SIZE,
+        canvas_size,
         provider.frame_for,
         StateProgressOverlay(),
-        PromotionPickerOverlay(CELL_SIZE * 8, CELL_SIZE * 8),
+        PromotionPickerOverlay(),
+        MoveHistoryPanel("White"),
+        MoveHistoryPanel("Black"),
+        BoardCoordinatesRenderer(),
+        PlayerPanel(),
+        PlayerPanelConfig("White", "W"),
+        PlayerPanelConfig("Black", "B"),
     )
 
-    snapshot = build_snapshot()
+    snapshot = build_snapshot(canvas_size)
 
-    window = Img()
-    window.open_window()
     try:
         while True:
             frame = renderer.render(snapshot)

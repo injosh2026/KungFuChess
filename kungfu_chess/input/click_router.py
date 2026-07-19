@@ -20,19 +20,24 @@ class ClickRouter:
         promotion_picker: PromotionPickerOverlay,
         get_pending_promotion: Callable[[], PendingPawnPromotion | None],
         board_click_handler: Callable[[int, int], object],
+        canvas_size_provider: Callable[[], tuple[int, int]],
     ):
         self._controller = controller
         self._promotion_picker = promotion_picker
         self._get_pending_promotion = get_pending_promotion
         self._board_click_handler = board_click_handler
+        self._canvas_size_provider = canvas_size_provider
 
     def __call__(self, x: int, y: int):
         pending = self._get_pending_promotion()
         if pending is not None:
+            canvas_width, canvas_height = self._canvas_size_provider()
             chosen_kind = self._promotion_picker.pick_choice(
                 x,
                 y,
                 pending.allowed_kinds,
+                canvas_width,
+                canvas_height,
             )
             if chosen_kind is not None:
                 return self._controller.handle_promotion_choice(

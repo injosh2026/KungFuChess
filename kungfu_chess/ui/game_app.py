@@ -40,6 +40,8 @@ class GameApp:
 
     def run(self) -> None:
         self._image.open_window()
+        self._image.prime_window()
+        self._mouse_input.attach(self._image)
 
         last_elapsed_ms = self._clock.elapsed_ms()
 

@@ -2,7 +2,7 @@ from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.view.game_snapshot import PromotionSnapshot
 
-WINDOW_SIZE = (800, 800)
+CANVAS_SIZE = (800, 800)
 
 
 class FakeCanvas:
@@ -23,7 +23,7 @@ class FakeCanvas:
 
 def test_draw_creates_one_button_per_allowed_kind():
     canvas = FakeCanvas()
-    overlay = PromotionPickerOverlay(*WINDOW_SIZE)
+    overlay = PromotionPickerOverlay()
     allowed = frozenset({PieceKind.QUEEN, PieceKind.ROOK})
 
     overlay.draw(
@@ -34,6 +34,7 @@ def test_draw_creates_one_button_per_allowed_kind():
             color=object(),
             allowed_kinds=allowed,
         ),
+        *CANVAS_SIZE,
     )
 
     assert len(canvas.draw_rect_calls) == 2
@@ -41,12 +42,17 @@ def test_draw_creates_one_button_per_allowed_kind():
 
 
 def test_pick_choice_returns_clicked_kind():
-    overlay = PromotionPickerOverlay(*WINDOW_SIZE)
+    overlay = PromotionPickerOverlay()
     allowed = frozenset({PieceKind.QUEEN, PieceKind.KNIGHT})
-    _, _, _, _, buttons = overlay._layout(allowed)
+    _, _, _, _, buttons = overlay._layout(allowed, *CANVAS_SIZE)
     queen_button = next(button for button in buttons if button[0] == PieceKind.QUEEN)
     _, x, y, width, height = queen_button
 
-    chosen = overlay.pick_choice(x + width // 2, y + height // 2, allowed)
+    chosen = overlay.pick_choice(
+        x + width // 2,
+        y + height // 2,
+        allowed,
+        *CANVAS_SIZE,
+    )
 
     assert chosen == PieceKind.QUEEN

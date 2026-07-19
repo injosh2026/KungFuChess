@@ -11,9 +11,13 @@ class FakeWindow:
         self.pumped = []
         self.click_handlers = []
         self.destroyed = []
+        self.size = None
 
     def create(self, title):
         self.created.append(title)
+
+    def read_size(self, title):
+        return self.size
 
     def show(self, title, image):
         self.shown.append((title, image))
@@ -134,3 +138,18 @@ def test_draw_rect_without_image_raises():
         return
 
     raise AssertionError("draw_rect should raise when no image is loaded")
+
+
+def test_canvas_size_uses_loaded_image_shape():
+    img, _ = make_img()
+    img.create_blank(640, 480, (0, 0, 0, 255))
+
+    assert img.canvas_size() == (640, 480)
+
+
+def test_canvas_size_uses_window_size_before_image_exists():
+    img, window = make_img()
+    window.size = (1024, 768)
+    img.open_window(TITLE)
+
+    assert img.canvas_size() == (1024, 768)

@@ -5,6 +5,9 @@ from kungfu_chess.engine.collision_resolver import CollisionResolver
 from kungfu_chess.engine.game_engine import GameEngine
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
+from kungfu_chess.events.event_bus import EventBus
+from kungfu_chess.history.move_history_observer import MoveHistoryObserver
+from kungfu_chess.scoring.score_observer import ScoreObserver
 from kungfu_chess.input.board_mapper import BoardMapper
 from kungfu_chess.input.controller import Controller
 from kungfu_chess.model.game_state import GameState
@@ -51,6 +54,8 @@ class GameFactory:
             A tuple containing:
             - Controller responsible for user input handling.
             - GameEngine responsible for game execution.
+            - MoveHistoryObserver recording completed moves.
+            - ScoreObserver recording capture scores.
         """
 
         game_state = GameState(board)
@@ -76,6 +81,11 @@ class GameFactory:
         state_transition_resolver = StateTransitionResolver(config_repository)
         state_timer = StateTimer()
         collision_resolver = CollisionResolver()
+        event_bus = EventBus()
+        move_history_observer = MoveHistoryObserver()
+        score_observer = ScoreObserver()
+        event_bus.subscribe(move_history_observer)
+        event_bus.subscribe(score_observer)
 
         game_engine = GameEngine(
             game_state,
@@ -88,10 +98,11 @@ class GameFactory:
             collision_resolver,
             ChessPawnEndHandler(),
             JumpRule(),
+            event_bus=event_bus,
         )
 
         board_mapper = BoardMapper(GameFactory.CELL_SIZE)
 
         controller = Controller(board, board_mapper, game_engine)
 
-        return controller, game_engine
+        return controller, game_engine, move_history_observer, score_observer

@@ -34,8 +34,6 @@ class SpriteLibrary:
         cell_size: int,
         image_factory: Callable[[], Img] = Img,
         sprite_extension: str = SPRITE_EXTENSION,
-        window_size: tuple[int, int] | None = None,
-        board_margin: int = 0,
         config_repository: PieceConfigRepository | None = None,
     ):
         """
@@ -67,14 +65,19 @@ class SpriteLibrary:
         self._cell_size = cell_size
         self._image_factory = image_factory
         self._sprite_extension = sprite_extension
-        self._window_size = window_size
-        self._board_margin = board_margin
         self._cache: dict[tuple[str, str], AnimationData] = {}
 
         if config_repository is None:
             config_repository = PieceConfigRepository(self._pieces_root.parent)
 
         self._config_repository = config_repository
+
+    def set_display_cell_size(self, cell_size: int) -> None:
+        if cell_size == self._cell_size:
+            return
+
+        self._cell_size = cell_size
+        self._cache.clear()
 
     def get_animation(self, code: str, state: str) -> AnimationData:
         """
@@ -87,29 +90,35 @@ class SpriteLibrary:
 
         return self._cache[key]
 
-    def background(self) -> Img:
+    def background(
+        self,
+        canvas_width: int,
+        canvas_height: int,
+        board_origin: tuple[int, int],
+    ) -> Img:
         """
-        Returns a fresh board background image to be used as a render
-        canvas. Not cached, since drawing onto it mutates the image.
+        Returns a fresh full-canvas background for the current frame.
 
-        Without a window size the board image is returned at its original
-        size. With a window size, the board is drawn (resized to the cell
-        grid) at ``board_margin`` on a blank window-sized canvas, leaving a
-        margin around the board.
+        The chess board image is resized to the current cell grid and
+        drawn at ``board_origin`` on a blank canvas sized to the current
+        window.
         """
-        if self._window_size is None:
-            return self._read(self._board_path, None)
-
         canvas = self._image_factory().create_blank(
-            self._window_size[0], self._window_size[1], BACKGROUND_COLOR
+            canvas_width,
+            canvas_height,
+            BACKGROUND_COLOR,
         )
 
         board_side = self._cell_size * BOARD_CELLS_PER_SIDE
         board = self._image_factory()
         board.read(str(self._board_path), size=(board_side, board_side))
 
-        board.draw_on(canvas, self._board_margin, self._board_margin)
+        board.draw_on(canvas, board_origin[0], board_origin[1])
         return canvas
+
+    def background_at_original_size(self) -> Img:
+        """Returns the board image alone at its original size (for tests)."""
+        return self._read(self._board_path, None)
 
     def _load_animation(self, code: str, state: str) -> AnimationData:
         state_dir = self._pieces_root / code / STATES_DIRNAME / state

@@ -24,13 +24,17 @@ class PromotionPickerOverlay:
     validate choices or modify game state.
     """
 
-    def __init__(self, window_width: int, window_height: int):
-        self._window_width = window_width
-        self._window_height = window_height
-
-    def draw(self, canvas: Img, promotion: PromotionSnapshot) -> None:
+    def draw(
+        self,
+        canvas: Img,
+        promotion: PromotionSnapshot,
+        canvas_width: int,
+        canvas_height: int,
+    ) -> None:
         panel_x, panel_y, panel_width, panel_height, buttons = self._layout(
-            promotion.allowed_kinds
+            promotion.allowed_kinds,
+            canvas_width,
+            canvas_height,
         )
 
         canvas.tint_rect(
@@ -65,8 +69,14 @@ class PromotionPickerOverlay:
         x: int,
         y: int,
         allowed_kinds: frozenset[PieceKind],
+        canvas_width: int,
+        canvas_height: int,
     ) -> PieceKind | None:
-        _, _, _, _, buttons = self._layout(allowed_kinds)
+        _, _, _, _, buttons = self._layout(
+            allowed_kinds,
+            canvas_width,
+            canvas_height,
+        )
 
         for kind, button_x, button_y, width, height in buttons:
             if (
@@ -80,6 +90,8 @@ class PromotionPickerOverlay:
     def _layout(
         self,
         allowed_kinds: frozenset[PieceKind],
+        canvas_width: int,
+        canvas_height: int,
     ) -> tuple[int, int, int, int, list[tuple[PieceKind, int, int, int, int]]]:
         kinds = sorted(allowed_kinds, key=lambda kind: kind.value)
         total_button_height = (
@@ -87,8 +99,8 @@ class PromotionPickerOverlay:
         )
         panel_width = BUTTON_WIDTH + 2 * PANEL_PADDING
         panel_height = total_button_height + 2 * PANEL_PADDING
-        panel_x = (self._window_width - panel_width) // 2
-        panel_y = (self._window_height - panel_height) // 2
+        panel_x = (canvas_width - panel_width) // 2
+        panel_y = (canvas_height - panel_height) // 2
 
         buttons = []
         button_y = panel_y + PANEL_PADDING
