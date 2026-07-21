@@ -13,7 +13,7 @@ from kungfu_chess.engine.collision_decisions import (
 from kungfu_chess.engine.collision_resolver import CollisionResolver
 from kungfu_chess.engine.jump_duration_resolver import JumpDurationResolver
 from kungfu_chess.engine.jump_window_tracker import JumpWindowTracker
-from kungfu_chess.events.event_bus import EventBus
+from kungfu_chess.events.message_bus import MessageBus
 from kungfu_chess.events.move_performed_event import MovePerformedEvent
 from kungfu_chess.view.runtime_role import RuntimeRole
 from kungfu_chess.engine.motion_factory import MotionFactory
@@ -71,7 +71,7 @@ class GameEngine:
         pawn_end_handler: PawnEndHandler | None = None,
         jump_rule: JumpRule | None = None,
         jump_duration_resolver: JumpDurationResolver | None = None,
-        event_bus: EventBus | None = None,
+        message_bus: MessageBus | None = None,
     ):
         self.game_state = game_state
         self.rule_engine = rule_engine
@@ -88,8 +88,8 @@ class GameEngine:
         )
         self._pawn_end_handler = pawn_end_handler
         self._jump_rule = jump_rule or JumpRule()
-        self._event_bus = event_bus or EventBus()
         self._game_elapsed_ms = 0
+        self.message_bus = message_bus or MessageBus()
 
     def request_move(self, source, destination) -> MoveResult:
 
@@ -466,7 +466,7 @@ class GameEngine:
 
         promotion = promotion_kind.value if promotion_kind is not None else None
 
-        self._event_bus.publish(
+        self.message_bus.publish(
             MovePerformedEvent(
                 timestamp_ms=self._game_elapsed_ms,
                 piece_id=piece.id,

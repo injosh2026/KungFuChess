@@ -1,11 +1,20 @@
 from pathlib import Path
 
+from kungfu_chess.events.handlers.jump_request_handler import JumpRequestHandler
+from kungfu_chess.events.handlers.move_request_handler import MoveRequestHandler
+from kungfu_chess.events.handlers.promotion_request_handler import (
+    PromotionRequestHandler,
+)
+from kungfu_chess.events.message_bus import MessageBus
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.engine.collision_resolver import CollisionResolver
 from kungfu_chess.engine.game_engine import GameEngine
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
-from kungfu_chess.events.event_bus import EventBus
+from kungfu_chess.events.messages.jump_requested_message import JumpRequestedMessage
+from kungfu_chess.events.messages.move_requested_message import MoveRequestedMessage
+from kungfu_chess.events.messages.promotion_requested_message import PromotionRequestedMessage
+from kungfu_chess.events.move_performed_event import MovePerformedEvent
 from kungfu_chess.history.move_history_observer import MoveHistoryObserver
 from kungfu_chess.scoring.score_observer import ScoreObserver
 from kungfu_chess.input.board_mapper import BoardMapper
@@ -73,19 +82,23 @@ class GameFactory:
 
         realtime_arbiter = RealTimeArbiter()
 
-        motion_factory = MotionFactory(
-            MovementDurationCalculator()
-        )
+        motion_factory = MotionFactory(MovementDurationCalculator())
 
         config_repository = PieceConfigRepository(ASSETS_ROOT)
         state_transition_resolver = StateTransitionResolver(config_repository)
         state_timer = StateTimer()
         collision_resolver = CollisionResolver()
-        event_bus = EventBus()
+        message_bus = MessageBus()
         move_history_observer = MoveHistoryObserver()
         score_observer = ScoreObserver()
-        event_bus.subscribe(move_history_observer)
-        event_bus.subscribe(score_observer)
+        message_bus.subscribe(
+            MovePerformedEvent,
+            move_history_observer.handle,
+        )
+        message_bus.subscribe(
+            MovePerformedEvent,
+            score_observer.handle
+        )
 
         game_engine = GameEngine(
             game_state,
@@ -98,11 +111,30 @@ class GameFactory:
             collision_resolver,
             ChessPawnEndHandler(),
             JumpRule(),
-            event_bus=event_bus,
+            message_bus,
+        )
+
+        move_request_handler = MoveRequestHandler(game_engine)
+        jump_request_handler = JumpRequestHandler(game_engine)
+        promotion_request_handler = PromotionRequestHandler(game_engine)
+
+        message_bus.subscribe(
+            MoveRequestedMessage,
+            move_request_handler.handle,
+        )
+
+        message_bus.subscribe(
+            JumpRequestedMessage,
+            jump_request_handler.handle,
+        )
+
+        message_bus.subscribe(
+            PromotionRequestedMessage,
+            promotion_request_handler.handle,
         )
 
         board_mapper = BoardMapper(GameFactory.CELL_SIZE)
 
-        controller = Controller(board, board_mapper, game_engine)
+        controller = Controller(board, board_mapper, game_engine, message_bus)
 
         return controller, game_engine, move_history_observer, score_observer

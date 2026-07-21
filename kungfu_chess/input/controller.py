@@ -1,4 +1,10 @@
-from kungfu_chess.engine.game_engine import GameEngine
+from kungfu_chess.input.game_queries import GameQueries
+from kungfu_chess.events.message_bus import MessageBus
+from kungfu_chess.events.messages.jump_requested_message import JumpRequestedMessage
+from kungfu_chess.events.messages.move_requested_message import (
+    MoveRequestedMessage,
+)
+from kungfu_chess.events.messages.promotion_requested_message import PromotionRequestedMessage
 from kungfu_chess.input.board_mapper import BoardMapper
 from kungfu_chess.input.jump_command import JumpCommand
 from kungfu_chess.input.promote_pawn_command import PromotePawnCommand
@@ -17,11 +23,14 @@ class Controller:
     """
 
     def __init__(
-        self, board: Board, board_mapper: BoardMapper, game_engine: GameEngine
+        self,
+        board: Board,
+        board_mapper: BoardMapper,
+        game_queries: GameQueries,
+        message_bus: MessageBus,
     ):
         """
         Creates a controller for a game session.
-
         Args:
             board:
                 Game board.
@@ -29,12 +38,13 @@ class Controller:
             board_mapper:
                 Converts input coordinates into board positions.
 
-            game_engine:
+            game_queries:
                 Handles movement requests.
         """
         self.board = board
         self.board_mapper = board_mapper
-        self.game_engine = game_engine
+        self.game_queries = game_queries
+        self.message_bus = message_bus
         self._selected_position = None
 
     @property
@@ -47,12 +57,10 @@ class Controller:
             return set()
 
         piece = self.board.get_piece_by_position(self._selected_position)
-        if piece is not None and self.game_engine.is_piece_in_cooldown(piece.id):
+        if piece is not None and self.game_queries.is_piece_in_cooldown(piece.id):
             return set()
 
-        return self.game_engine.get_legal_moves(
-            self._selected_position
-        )
+        return self.game_queries.get_legal_moves(self._selected_position)
 
     def handle_click(self, x: int, y: int):
         """
@@ -90,7 +98,7 @@ class Controller:
             if piece is None:
                 return None
 
-            if self.game_engine.is_piece_in_cooldown(piece.id):
+            if self.game_queries.is_piece_in_cooldown(piece.id):
                 return None
 
             self._selected_position = position
@@ -106,20 +114,27 @@ class Controller:
 
             return self.handle_jump(JumpCommand(piece_id=piece.id))
 
-        return self.game_engine.request_move(source, position)
+        message = MoveRequestedMessage(
+            source=source,
+            destination=position,
+        )
+        self.message_bus.publish(message)
+        return None
 
     def handle_jump(self, command: JumpCommand):
         """
-        Forwards a jump request to the game engine.
+        Publishes a jump request message.
 
         Args:
             command:
                 Jump request data from input.
 
         Returns:
-            MoveResult from the game engine.
+            None.
         """
-        return self.game_engine.request_jump(command.piece_id)
+        message = JumpRequestedMessage(piece_id=command.piece_id)
+
+        self.message_bus.publish(message)
 
     def handle_promotion_choice(self, command: PromotePawnCommand):
         """
@@ -132,7 +147,9 @@ class Controller:
         Returns:
             MoveResult from the game engine.
         """
-        return self.game_engine.submit_pawn_promotion_choice(
-            command.piece_id,
-            command.chosen_kind,
+        message = PromotionRequestedMessage(
+            piece_id=command.piece_id,
+            chosen_kind=command.chosen_kind,
         )
+
+        self.message_bus.publish(message)

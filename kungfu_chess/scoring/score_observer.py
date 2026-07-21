@@ -29,7 +29,7 @@ class ScoreObserver:
     def __init__(self) -> None:
         self._scores: dict[str, int] = {}
 
-    def on_game_event(self, event: GameEvent) -> None:
+    def handle(self, event: GameEvent) -> None:
         if not isinstance(event, MovePerformedEvent):
             return
 

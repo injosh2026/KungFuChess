@@ -1,6 +1,6 @@
 from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, StateConfig
 from kungfu_chess.engine.game_engine import GameEngine
-from kungfu_chess.events.event_bus import EventBus
+from kungfu_chess.events.message_bus import MessageBus
 from kungfu_chess.events.move_performed_event import MovePerformedEvent
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.game_state import GameState
@@ -69,7 +69,7 @@ class RecordingObserver:
     def __init__(self):
         self.events = []
 
-    def on_game_event(self, event) -> None:
+    def handle(self, event) -> None:
         self.events.append(event)
 
 
@@ -84,9 +84,12 @@ def create_engine_with_observer(validation):
     board.add_piece(piece)
     state = GameState(board)
 
-    event_bus = EventBus()
+    message_bus = MessageBus()
     observer = RecordingObserver()
-    event_bus.subscribe(observer)
+    message_bus.subscribe(
+        MovePerformedEvent,
+        observer.handle,
+    )
 
     engine = GameEngine(
         state,
@@ -96,7 +99,7 @@ def create_engine_with_observer(validation):
         FakeStateTransitionResolver(),
         FakeConfigRepository(),
         FakeStateTimer(),
-        event_bus=event_bus,
+        message_bus=message_bus,
     )
     return engine, state, observer
 

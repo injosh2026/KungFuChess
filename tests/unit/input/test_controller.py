@@ -1,3 +1,5 @@
+from kungfu_chess.events.messages.jump_requested_message import JumpRequestedMessage
+from kungfu_chess.events.messages.promotion_requested_message import PromotionRequestedMessage
 from kungfu_chess.input.controller import Controller
 from kungfu_chess.input.jump_command import JumpCommand
 from kungfu_chess.input.promote_pawn_command import PromotePawnCommand
@@ -6,6 +8,9 @@ from kungfu_chess.model.piece import Piece
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
+from kungfu_chess.events.messages.move_requested_message import (
+    MoveRequestedMessage,
+)
 
 
 class FakeBoardMapper:
@@ -46,39 +51,43 @@ class FakeGameEngine:
         return "promotion_result"
 
 
+class FakeMessageBus:
+
+    def __init__(self):
+        self.messages = []
+
+    def publish(self, message):
+        self.messages.append(message)
+
+
 def create_controller():
 
     board = Board(8, 8)
 
-    piece = Piece(
-        id=1,
-        color=Color.WHITE,
-        kind=PieceKind.ROOK,
-        cell=Position(0, 0)
-    )
+    piece = Piece(id=1, color=Color.WHITE, kind=PieceKind.ROOK, cell=Position(0, 0))
 
     board.add_piece(piece)
 
-    mapper = FakeBoardMapper({
-        (50, 50): Position(0, 0),
-        (150, 50): Position(0, 1),
-        (900, 900): None
-    })
+    mapper = FakeBoardMapper(
+        {(50, 50): Position(0, 0), (150, 50): Position(0, 1), (900, 900): None}
+    )
 
     engine = FakeGameEngine()
+    bus = FakeMessageBus()
 
     controller = Controller(
         board,
         mapper,
-        engine
+        engine,
+        bus,
     )
 
-    return controller, engine
+    return controller, engine, bus
 
 
 def test_first_click_selects_piece():
 
-    controller, engine = create_controller()
+    controller, engine, _ = create_controller()
 
     controller.handle_click(50, 50)
 
@@ -88,7 +97,7 @@ def test_first_click_selects_piece():
 
 def test_first_click_on_empty_cell_does_nothing():
 
-    controller, engine = create_controller()
+    controller, engine, _ = create_controller()
 
     controller.handle_click(150, 50)
 
@@ -96,27 +105,25 @@ def test_first_click_on_empty_cell_does_nothing():
     assert engine.calls == []
 
 
-def test_second_click_sends_move_to_engine():
+def test_second_click_publishes_move_message():
 
-    controller, engine = create_controller()
+    controller, _, bus = create_controller()
 
     controller.handle_click(50, 50)
 
     result = controller.handle_click(150, 50)
 
-    assert result == "move_result"
-
-    assert engine.calls == [
-        (
-            Position(0, 0),
-            Position(0, 1)
+    assert bus.messages == [
+        MoveRequestedMessage(
+            source=Position(0, 0),
+            destination=Position(0, 1),
         )
     ]
 
 
 def test_second_click_clears_selection():
 
-    controller, _ = create_controller()
+    controller, _, _ = create_controller()
 
     controller.handle_click(50, 50)
 
@@ -127,7 +134,7 @@ def test_second_click_clears_selection():
 
 def test_click_outside_board_without_selection_is_ignored():
 
-    controller, engine = create_controller()
+    controller, engine, _ = create_controller()
 
     controller.handle_click(900, 900)
 
@@ -137,7 +144,7 @@ def test_click_outside_board_without_selection_is_ignored():
 
 def test_click_outside_board_with_selection_cancels_selection():
 
-    controller, engine = create_controller()
+    controller, engine, _ = create_controller()
 
     controller.handle_click(50, 50)
 
@@ -148,7 +155,7 @@ def test_click_outside_board_with_selection_cancels_selection():
 
 
 def test_click_does_not_select_piece_in_cooldown():
-    controller, engine = create_controller()
+    controller, engine, _ = create_controller()
     engine.in_cooldown = True
 
     controller.handle_click(50, 50)
@@ -158,7 +165,7 @@ def test_click_does_not_select_piece_in_cooldown():
 
 
 def test_legal_moves_are_empty_when_selected_piece_is_in_cooldown():
-    controller, engine = create_controller()
+    controller, engine, _ = create_controller()
     engine.in_cooldown = True
     controller._selected_position = Position(0, 0)
 
@@ -167,7 +174,7 @@ def test_legal_moves_are_empty_when_selected_piece_is_in_cooldown():
 
 
 def test_legal_moves_use_rule_engine_when_piece_is_not_in_cooldown():
-    controller, engine = create_controller()
+    controller, engine, _ = create_controller()
 
     controller.handle_click(50, 50)
 
@@ -176,42 +183,56 @@ def test_legal_moves_use_rule_engine_when_piece_is_not_in_cooldown():
 
 
 def test_handle_promotion_choice_forwards_queen_to_engine():
-    controller, engine = create_controller()
+    controller, _, bus = create_controller()
 
     command = PromotePawnCommand(piece_id=1, chosen_kind=PieceKind.QUEEN)
     result = controller.handle_promotion_choice(command)
 
-    assert result == "promotion_result"
-    assert engine.promotion_calls == [(1, PieceKind.QUEEN)]
+    assert result is None
+
+    assert bus.messages == [
+        PromotionRequestedMessage(
+            piece_id=1,
+            chosen_kind=PieceKind.QUEEN,
+        )
+    ]
 
 
 def test_handle_promotion_choice_forwards_knight_to_engine():
-    controller, engine = create_controller()
+    controller, _, bus = create_controller()
 
     command = PromotePawnCommand(piece_id=3, chosen_kind=PieceKind.KNIGHT)
     result = controller.handle_promotion_choice(command)
 
-    assert result == "promotion_result"
-    assert engine.promotion_calls == [(3, PieceKind.KNIGHT)]
+    assert result is None
+
+    assert bus.messages == [
+        PromotionRequestedMessage(
+            piece_id=3,
+            chosen_kind=PieceKind.KNIGHT
+        )
+    ]
 
 
 def test_second_click_on_same_cell_sends_jump_to_engine():
-    controller, engine = create_controller()
+    controller, _, bus = create_controller()
 
     controller.handle_click(50, 50)
     result = controller.handle_click(50, 50)
 
-    assert result == "jump_result"
-    assert engine.jump_calls == [1]
-    assert engine.calls == []
+    assert bus.messages == [JumpRequestedMessage(piece_id=1)]
 
 
-def test_second_click_on_different_cell_still_sends_move_to_engine():
-    controller, engine = create_controller()
+def test_second_click_on_different_cell_publishes_move_message():
+
+    controller, _, bus = create_controller()
 
     controller.handle_click(50, 50)
     result = controller.handle_click(150, 50)
 
-    assert result == "move_result"
-    assert engine.calls == [(Position(0, 0), Position(0, 1))]
-    assert engine.jump_calls == []
+    assert bus.messages == [
+        MoveRequestedMessage(
+            source=Position(0, 0),
+            destination=Position(0, 1),
+        )
+    ]

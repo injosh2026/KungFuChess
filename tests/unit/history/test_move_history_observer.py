@@ -6,7 +6,7 @@ from kungfu_chess.model.position import Position
 def test_observer_records_move_performed_event():
     observer = MoveHistoryObserver()
 
-    observer.on_game_event(
+    observer.handle(
         MovePerformedEvent(
             timestamp_ms=83000,
             piece_id=1,
@@ -31,7 +31,7 @@ def test_observer_records_move_performed_event():
 def test_observer_appends_entries_chronologically():
     observer = MoveHistoryObserver()
 
-    observer.on_game_event(
+    observer.handle(
         MovePerformedEvent(
             timestamp_ms=1000,
             piece_id=1,
@@ -41,7 +41,7 @@ def test_observer_appends_entries_chronologically():
             to_position=Position(0, 1),
         )
     )
-    observer.on_game_event(
+    observer.handle(
         MovePerformedEvent(
             timestamp_ms=2000,
             piece_id=2,
@@ -64,6 +64,6 @@ def test_observer_ignores_unknown_event_types():
     from kungfu_chess.events.game_event import GameEvent
 
     observer = MoveHistoryObserver()
-    observer.on_game_event(GameEvent(timestamp_ms=1))
+    observer.handle(GameEvent(timestamp_ms=1))
 
     assert observer.entries() == ()
