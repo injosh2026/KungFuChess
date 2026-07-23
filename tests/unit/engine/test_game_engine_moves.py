@@ -4,8 +4,8 @@ from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
 from kungfu_chess.rules.move_validation import MoveValidation
+from tests.helpers.engine_test_factory import create_engine
 from tests.unit.engine.test_collision_resolver import create_motion
-from tests.unit.engine.test_game_engine import create_engine
 
 
 def test_game_over_rejects_move():

@@ -9,8 +9,9 @@ from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
 from kungfu_chess.realtime.state_timer import StateTimer
+from tests.helpers.engine_fakes import FakeMotionFactory, FakeRuleEngine
+from tests.helpers.engine_test_factory import LONG_REST_DURATION_MS, MOTION_DURATION_MS, create_configured_engine
 from tests.helpers.engine_wiring import build_engine_context
-from tests.unit.engine.test_game_engine import LONG_REST_DURATION_MS, MOTION_DURATION_MS, FakeMotionFactory, FakeRuleEngine, create_configured_engine
 from kungfu_chess.rules.move_validation import MoveValidation as MV
 
 

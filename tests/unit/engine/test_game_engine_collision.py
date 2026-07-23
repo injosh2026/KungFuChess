@@ -8,9 +8,9 @@ from kungfu_chess.model.position import Position
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.realtime.motion_kinematics import CELL_MS
 from kungfu_chess.rules.move_validation import MoveValidation
+from tests.helpers.engine_test_factory import _build_basic_engine, create_chase_engine, create_crossing_engine, create_engine, create_friendly_convergence_engine
 from tests.helpers.engine_wiring import CompleteSimulationService
 from tests.unit.engine.test_collision_resolver import square
-from tests.unit.engine.test_game_engine import _build_basic_engine, create_chase_engine, create_crossing_engine, create_engine, create_friendly_convergence_engine
 
 
 def test_later_arrival_captures_standing_enemy():

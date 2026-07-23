@@ -6,8 +6,9 @@ from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.rules.move_validation import MoveValidation
+from tests.helpers.engine_fakes import FakeArbiter, FakeConfigRepository, FakeMotionFactory, FakeRuleEngine, FakeStateTimer, FakeStateTransitionResolver
+from tests.helpers.engine_test_factory import _build_basic_engine, create_engine
 from tests.helpers.engine_wiring import build_engine_context
-from tests.unit.engine.test_game_engine import FakeArbiter, FakeConfigRepository, FakeMotionFactory, FakeRuleEngine, FakeStateTimer, FakeStateTransitionResolver, _build_basic_engine, create_engine
 
 
 def test_wait_advances_all_active_motions():

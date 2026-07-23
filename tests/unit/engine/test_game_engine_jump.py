@@ -13,8 +13,9 @@ from kungfu_chess.rules.move_validation import MoveValidation
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 from kungfu_chess.view.runtime_role import RuntimeRole
 from kungfu_chess.view.snapshot_builder import SnapshotBuilder
+from tests.helpers.engine_fakes import FakeConfigRepository, FakeMotionFactory, FakeRuleEngine, FakeStateTimer, FixedJumpDurationResolver, JumpLifecycleTransitionResolver, TrackingMotionFactory
+from tests.helpers.engine_test_factory import create_jump_collision_engine, create_jump_engine
 from tests.helpers.engine_wiring import build_engine_context
-from tests.unit.engine.test_game_engine import FakeConfigRepository, FakeMotionFactory, FakeRuleEngine, FakeStateTimer, FixedJumpDurationResolver, JumpLifecycleTransitionResolver, TrackingMotionFactory, create_jump_collision_engine, create_jump_engine
 
 
 def test_request_jump_sets_jump_state():

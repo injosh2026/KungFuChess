@@ -1,10 +1,8 @@
-import json
+
 from pathlib import Path
 
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
-from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, StateConfig
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
-from tests.helpers.engine_wiring import build_engine_context
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.piece import Piece
@@ -17,152 +15,15 @@ from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.move_validation import MoveValidation
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+from tests.helpers.config_test_helpers import write_piece_defaults, write_state_config
+from tests.helpers.engine_fakes import FakeConfigRepository, FakeMotionFactory, FakeRuleEngine, FakeStateTimer, FakeStateTransitionResolver, FixedJumpDurationResolver, JumpLifecycleTransitionResolver, TrackingMotionFactory, TrackingStateTransitionResolver
+from tests.helpers.engine_wiring import build_engine_context
+from tests.unit.engine.test_collision_resolver import square
 
-from kungfu_chess.rules.move_validation import MoveValidation as MV
 
 PIECE_CODE = "RW"
 LONG_REST_DURATION_MS = 2000
 MOTION_DURATION_MS = 1000
-
-class FixedJumpDurationResolver:
-
-    def __init__(self, duration_ms: int):
-        self._duration_ms = duration_ms
-
-    def duration_ms(self, piece_code, jump_state_name):
-        return self._duration_ms
-
-
-class JumpLifecycleTransitionResolver:
-
-    def resolve(self, piece_code, current_state):
-        if current_state == "jump":
-            return "short_rest"
-        if current_state == "short_rest":
-            return "idle"
-        return current_state
-
-
-class FakeRuleEngine:
-
-    def __init__(self, validation):
-        self.validation = validation
-        self.called = False
-
-    def validate_move(self, board, source, destination):
-        self.called = True
-        return self.validation
-
-
-class FakeArbiter:
-
-    def __init__(self):
-        self.called_with = None
-
-    def active_motions(self):
-        return ()
-
-    def advance_time(self, milliseconds):
-        self.called_with = milliseconds
-        return []
-
-
-class FakeMotionFactory:
-
-    def create(self, piece, source, target):
-        return Motion(piece.id, source, target, 1000)
-
-
-class TrackingMotionFactory:
-
-    def __init__(self):
-        self.calls = []
-
-    def create(self, piece, source, target):
-        self.calls.append((piece.id, source, target))
-        return Motion(
-            piece.id,
-            source,
-            target,
-            duration_ms=1000,
-        )
-
-
-class FakeConfigRepository:
-
-    def __init__(self, move_command_state="move", jump_command_state="jump"):
-        self.move_command_state = move_command_state
-        self.jump_command_state = jump_command_state
-
-    def get_move_command_state(self, piece_code):
-        return self.move_command_state
-
-    def get_jump_command_state(self, piece_code):
-        return self.jump_command_state
-
-    def load_state(self, piece_code, state_name):
-        if state_name == "jump":
-            return StateConfig(
-                physics=PhysicsConfig(
-                    speed_m_per_sec=3.0,
-                    next_state_when_finished="short_rest",
-                ),
-                graphics=GraphicsConfig(frames_per_sec=8, is_loop=False),
-            )
-
-        if state_name == "short_rest":
-            return StateConfig(
-                physics=PhysicsConfig(
-                    speed_m_per_sec=0.0,
-                    next_state_when_finished="idle",
-                    duration_ms=1500,
-                ),
-                graphics=GraphicsConfig(frames_per_sec=8, is_loop=True),
-            )
-
-        return StateConfig(
-            physics=PhysicsConfig(
-                speed_m_per_sec=0.0,
-                next_state_when_finished=state_name,
-            ),
-            graphics=GraphicsConfig(frames_per_sec=12, is_loop=True),
-        )
-
-
-class FakeStateTransitionResolver:
-
-    def resolve(self, piece_code, current_state):
-        return "idle"
-
-
-class TrackingStateTransitionResolver:
-
-    def __init__(self, next_state="idle"):
-        self.calls = []
-        self.next_state = next_state
-
-    def resolve(self, piece_code, current_state):
-        self.calls.append((piece_code, current_state))
-        return self.next_state
-
-
-class FakeStateTimer:
-
-    def start(self, piece_id, duration_ms):
-        pass
-
-    def advance(self, milliseconds, *, only_piece_ids=None):
-        return []
-
-    def progress(self, piece_id):
-        return None
-
-    def active_piece_ids(self):
-        return []
-
-    def has_active_timer(self, piece_id):
-        return False
-
 
 def create_engine(validation):
 
@@ -265,45 +126,6 @@ def create_motion():
 
 
 
-
-
-def write_piece_defaults(root: Path) -> None:
-    defaults = {
-        "initial_state": "idle",
-        "move_command_state": "move",
-        "jump_command_state": "jump",
-    }
-    defaults_path = root / "pieces2" / "piece_defaults.json"
-    defaults_path.parent.mkdir(parents=True, exist_ok=True)
-    defaults_path.write_text(
-        json.dumps(defaults),
-        encoding="utf-8",
-    )
-
-
-def write_state_config(
-    root: Path,
-    piece_code: str,
-    state_name: str,
-    next_state: str,
-    speed: float = 1.5,
-    duration_ms: int | None = None,
-) -> None:
-    state_dir = root / "pieces2" / piece_code / "states" / state_name
-    state_dir.mkdir(parents=True)
-    physics = {
-        "speed_m_per_sec": speed,
-        "next_state_when_finished": next_state,
-    }
-    if duration_ms is not None:
-        physics["duration_ms"] = duration_ms
-    config = {
-        "physics": physics,
-        "graphics": {"frames_per_sec": 12, "is_loop": True},
-    }
-    (state_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
-
-
 def create_configured_engine(
     root: Path,
     move_next_state: str,
@@ -345,7 +167,7 @@ def create_configured_engine(
 
     context = build_engine_context(
         state,
-        FakeRuleEngine(MV(True, "ok")),
+        FakeRuleEngine(MoveValidation(True, "ok")),
         motion_factory=FakeMotionFactory(),
         config_repository=repository,
         state_timer=StateTimer(),
@@ -353,12 +175,6 @@ def create_configured_engine(
         assets_root=root,
     )
     return context.engine, piece
-
-
-def square(name: str) -> Position:
-    file_index = ord(name[0]) - ord("a")
-    rank_index = int(name[1]) - 1
-    return Position(rank_index, file_index)
 
 
 def _build_basic_engine(state, validation=None):

@@ -13,8 +13,10 @@ from kungfu_chess.rules.auto_promote_queen_handler import AutoPromoteQueenHandle
 from kungfu_chess.rules.chess_pawn_end_handler import ChessPawnEndHandler
 from kungfu_chess.rules.move_validation import MoveValidation
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+from tests.helpers.engine_fakes import FakeConfigRepository, FakeMotionFactory, FakeRuleEngine, FakeStateTimer, FakeStateTransitionResolver, TrackingStateTransitionResolver
+from tests.helpers.engine_test_factory import board_with_pending_promotion, create_promotion_engine, land_white_pawn_on_promotion_rank
 from tests.helpers.engine_wiring import build_engine_context
-from tests.unit.engine.test_game_engine import FakeConfigRepository, FakeMotionFactory, FakeRuleEngine, FakeStateTimer, FakeStateTransitionResolver, TrackingStateTransitionResolver, board_with_pending_promotion, create_promotion_engine, land_white_pawn_on_promotion_rank
+
 
 
 def test_pawn_promotion_sets_queen_kind_after_completion():
