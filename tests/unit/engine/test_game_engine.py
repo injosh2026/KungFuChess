@@ -1,11 +1,16 @@
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, StateConfig
-from kungfu_chess.engine.game_engine import (
-    GameEngine,
-    PENDING_PAWN_PROMOTION,
-    PIECE_IN_COOLDOWN,
-    PIECE_IN_MOTION,
-)
+from kungfu_chess.engine.arrival_resolver import ArrivalResolver
+from kungfu_chess.engine.collision_resolver import CollisionResolver
+from kungfu_chess.engine.game_engine import GameEngine
+from kungfu_chess.engine.jump_window_tracker import JumpWindowTracker
+from kungfu_chess.engine.services.capture_service import CaptureService
+from kungfu_chess.engine.services.jump_service import PENDING_PAWN_PROMOTION, PIECE_IN_COOLDOWN, PIECE_IN_MOTION, JumpService
+from kungfu_chess.engine.services.motion_completion_service import MotionCompletionService
+from kungfu_chess.engine.services.move_service import MoveService
+from kungfu_chess.engine.services.simulation_service import SimulationService
+from kungfu_chess.engine.services.state_transition_service import StateTransitionService
+from kungfu_chess.engine.services.timed_state_service import TimedStateService
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.game_state import GameState
@@ -230,31 +235,111 @@ def test_valid_move_returns_ok():
     assert rule_engine.called is True
 
 
-def create_jump_engine(motion_factory=None, jump_duration_ms=500, state_timer=None):
+def create_jump_engine(
+    motion_factory=None,
+    jump_duration_ms=500,
+    state_timer=None,
+):
     board = Board(8, 8)
+
     piece = Piece(
         id=1,
         color=Color.WHITE,
         kind=PieceKind.KNIGHT,
         cell=Position(0, 0),
     )
+
     board.add_piece(piece)
+
     state = GameState(board)
+
+    rule_engine = FakeRuleEngine(
+        MoveValidation(True, "ok")
+    )
+
+    realtime_arbiter = RealTimeArbiter()
+
+    state_timer = state_timer or FakeStateTimer()
+
     motion_factory = motion_factory or TrackingMotionFactory()
+
+    config_repository = FakeConfigRepository()
+
+    jump_window_tracker = JumpWindowTracker()
+
+    state_transition_service = StateTransitionService(
+        config_repository,
+        JumpLifecycleTransitionResolver(),
+        state_timer,
+    )
+
+    move_service = MoveService(
+        state,
+        rule_engine,
+        realtime_arbiter,
+        motion_factory,
+        config_repository,
+    )
+
+    jump_service = JumpService(
+        state,
+        realtime_arbiter,
+        state_timer,
+        JumpRule(),
+        jump_window_tracker,
+        FixedJumpDurationResolver(jump_duration_ms),
+        config_repository,
+    )
+
+    capture_service = CaptureService(
+        state,
+        realtime_arbiter,
+        jump_window_tracker,
+    )
+
+    collision_resolver = CollisionResolver()
+
+    arrival_resolver = ArrivalResolver(state)
+
+    motion_completion_service = MotionCompletionService(
+        state,
+        realtime_arbiter,
+        collision_resolver,
+        arrival_resolver,
+        capture_service,
+        jump_window_tracker,
+        state_transition_service,
+        None,
+    )
+
+    timed_state_service = TimedStateService(
+        state,
+        state_timer,
+        jump_window_tracker,
+        config_repository,
+        state_transition_service,
+    )
+
+    simulation_service = SimulationService(
+        state,
+        realtime_arbiter,
+        collision_resolver,
+        capture_service,
+        motion_completion_service,
+        timed_state_service,
+    )
 
     engine = GameEngine(
         state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        motion_factory,
-        JumpLifecycleTransitionResolver(),
-        FakeConfigRepository(),
-        state_timer or FakeStateTimer(),
-        jump_rule=JumpRule(),
-        jump_duration_resolver=FixedJumpDurationResolver(jump_duration_ms),
+        rule_engine,
+        realtime_arbiter,
+        state_timer,
+        move_service,
+        jump_service,
+        simulation_service,
     )
-    return engine, state, piece, motion_factory
 
+    return engine, state, piece, motion_factory
 
 def test_request_jump_sets_jump_state():
     engine, state, piece, _ = create_jump_engine()
