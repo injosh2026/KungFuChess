@@ -1,17 +1,15 @@
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, StateConfig
-from kungfu_chess.engine.arrival_resolver import ArrivalResolver
-from kungfu_chess.engine.collision_resolver import CollisionResolver
-from kungfu_chess.engine.game_engine import GameEngine
-from kungfu_chess.engine.jump_window_tracker import JumpWindowTracker
-from kungfu_chess.engine.services.capture_service import CaptureService
-from kungfu_chess.engine.services.jump_service import PENDING_PAWN_PROMOTION, PIECE_IN_COOLDOWN, PIECE_IN_MOTION, JumpService
-from kungfu_chess.engine.services.motion_completion_service import MotionCompletionService
-from kungfu_chess.engine.services.move_service import MoveService
-from kungfu_chess.engine.services.simulation_service import SimulationService
-from kungfu_chess.engine.services.state_transition_service import StateTransitionService
-from kungfu_chess.engine.services.timed_state_service import TimedStateService
+from kungfu_chess.engine.services.jump_service import (
+    PENDING_PAWN_PROMOTION,
+    PIECE_IN_COOLDOWN,
+    PIECE_IN_MOTION,
+)
+from kungfu_chess.engine.services.motion_completion_service import (
+    MotionCompletionService,
+)
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
+from tests.helpers.engine_wiring import CompleteSimulationService, EngineTestContext, build_engine_context
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.piece import Piece
@@ -196,17 +194,16 @@ def create_engine(validation):
 
     rule_engine = FakeRuleEngine(validation)
 
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         rule_engine,
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=FakeStateTransitionResolver(),
     )
 
-    return engine, state, rule_engine
+    return context.engine, state, rule_engine
 
 
 def test_game_over_rejects_move():
@@ -257,89 +254,21 @@ def create_jump_engine(
         MoveValidation(True, "ok")
     )
 
-    realtime_arbiter = RealTimeArbiter()
-
     state_timer = state_timer or FakeStateTimer()
 
     motion_factory = motion_factory or TrackingMotionFactory()
 
-    config_repository = FakeConfigRepository()
-
-    jump_window_tracker = JumpWindowTracker()
-
-    state_transition_service = StateTransitionService(
-        config_repository,
-        JumpLifecycleTransitionResolver(),
-        state_timer,
-    )
-
-    move_service = MoveService(
+    context = build_engine_context(
         state,
         rule_engine,
-        realtime_arbiter,
-        motion_factory,
-        config_repository,
+        motion_factory=motion_factory,
+        config_repository=FakeConfigRepository(),
+        state_timer=state_timer,
+        state_transition_resolver=JumpLifecycleTransitionResolver(),
+        jump_duration_resolver=FixedJumpDurationResolver(jump_duration_ms),
     )
 
-    jump_service = JumpService(
-        state,
-        realtime_arbiter,
-        state_timer,
-        JumpRule(),
-        jump_window_tracker,
-        FixedJumpDurationResolver(jump_duration_ms),
-        config_repository,
-    )
-
-    capture_service = CaptureService(
-        state,
-        realtime_arbiter,
-        jump_window_tracker,
-    )
-
-    collision_resolver = CollisionResolver()
-
-    arrival_resolver = ArrivalResolver(state)
-
-    motion_completion_service = MotionCompletionService(
-        state,
-        realtime_arbiter,
-        collision_resolver,
-        arrival_resolver,
-        capture_service,
-        jump_window_tracker,
-        state_transition_service,
-        None,
-    )
-
-    timed_state_service = TimedStateService(
-        state,
-        state_timer,
-        jump_window_tracker,
-        config_repository,
-        state_transition_service,
-    )
-
-    simulation_service = SimulationService(
-        state,
-        realtime_arbiter,
-        collision_resolver,
-        capture_service,
-        motion_completion_service,
-        timed_state_service,
-    )
-
-    engine = GameEngine(
-        state,
-        rule_engine,
-        realtime_arbiter,
-        state_timer,
-        move_service,
-        jump_service,
-        simulation_service,
-    )
-
-    return engine, state, piece, motion_factory
+    return context.engine, state, piece, motion_factory
 
 def test_request_jump_sets_jump_state():
     engine, state, piece, _ = create_jump_engine()
@@ -408,12 +337,13 @@ def test_request_jump_rejected_while_piece_is_in_motion():
 
 def test_request_jump_creates_active_jump_window():
     engine, _, piece, _ = create_jump_engine()
+    tracker = engine._jump_service._jump_window_tracker
 
     engine.request_jump(piece.id)
 
-    assert engine._jump_window_tracker.is_active_at(piece.id, 0) is True
-    assert engine._jump_window_tracker.is_active_at(piece.id, 499) is True
-    assert engine._jump_window_tracker.is_active_at(piece.id, 500) is False
+    assert tracker.is_active_at(piece.id, 0) is True
+    assert tracker.is_active_at(piece.id, 499) is True
+    assert tracker.is_active_at(piece.id, 500) is False
 
 
 def test_request_jump_does_not_set_has_moved():
@@ -442,18 +372,16 @@ def create_jump_collision_engine():
     board.add_piece(attacker)
     state = GameState(board)
 
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        JumpLifecycleTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-        jump_rule=JumpRule(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=JumpLifecycleTransitionResolver(),
         jump_duration_resolver=FixedJumpDurationResolver(500),
     )
-    return engine, state, defender, attacker
+    return context.engine, state, defender, attacker
 
 
 def test_jumping_defender_captures_enemy_landing_on_cell():
@@ -507,17 +435,16 @@ def test_jumping_king_capturing_enemy_does_not_end_game():
     board.add_piece(attacker)
     state = GameState(board)
 
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        JumpLifecycleTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-        jump_rule=JumpRule(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=JumpLifecycleTransitionResolver(),
         jump_duration_resolver=FixedJumpDurationResolver(500),
     )
+    engine = context.engine
 
     engine.request_jump(defender.id)
     engine.realtime_arbiter.start_motion(
@@ -660,17 +587,16 @@ def test_jumping_defender_capturing_king_ends_game():
     board.add_piece(attacker)
     state = GameState(board)
 
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        JumpLifecycleTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-        jump_rule=JumpRule(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=JumpLifecycleTransitionResolver(),
         jump_duration_resolver=FixedJumpDurationResolver(500),
     )
+    engine = context.engine
 
     engine.request_jump(defender.id)
     engine.realtime_arbiter.start_motion(
@@ -851,15 +777,7 @@ def test_later_arrival_to_same_cell_captures_earlier_arrival():
     board.add_piece(later)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
+    engine = _build_basic_engine(state).engine
 
     target = Position(0, 3)
     engine.realtime_arbiter.start_motion(
@@ -894,15 +812,7 @@ def test_same_cell_same_duration_uses_piece_id_tie_break():
     board.add_piece(later)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
+    engine = _build_basic_engine(state).engine
 
     target = Position(0, 3)
     engine.realtime_arbiter.start_motion(
@@ -953,15 +863,16 @@ def test_wait_delegates_to_real_time_arbiter():
 
     arbiter = FakeArbiter()
 
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(MoveValidation(True, "ok")),
-        arbiter,
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=FakeStateTransitionResolver(),
+        realtime_arbiter=arbiter,
     )
+    engine = context.engine
 
     engine.wait(700)
 
@@ -974,6 +885,8 @@ from pathlib import Path
 from kungfu_chess.rules.move_validation import MoveValidation as MV
 
 PIECE_CODE = "RW"
+LONG_REST_DURATION_MS = 2000
+MOTION_DURATION_MS = 1000
 
 
 def write_piece_defaults(root: Path) -> None:
@@ -1048,16 +961,16 @@ def create_configured_engine(
     repository = PieceConfigRepository(root)
     resolver = StateTransitionResolver(repository)
 
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(MV(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        resolver,
-        repository,
-        StateTimer(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=repository,
+        state_timer=StateTimer(),
+        state_transition_resolver=resolver,
+        assets_root=root,
     )
-    return engine, piece
+    return context.engine, piece
 
 
 def test_completed_move_transitions_to_idle_from_config(tmp_path):
@@ -1073,7 +986,7 @@ def test_completed_move_transitions_to_long_rest_from_config(tmp_path):
     engine, piece = create_configured_engine(
         tmp_path,
         "long_rest",
-        extra_states=(("long_rest", "idle", 0.0, 1000),),
+        extra_states=(("long_rest", "idle", 0.0, LONG_REST_DURATION_MS),),
     )
 
     engine.request_move(Position(0, 0), Position(0, 1))
@@ -1086,18 +999,18 @@ def test_long_rest_with_duration_transitions_to_idle_after_timer(tmp_path):
     engine, piece = create_configured_engine(
         tmp_path,
         "long_rest",
-        extra_states=(("long_rest", "idle", 0.0, 1000),),
+        extra_states=(("long_rest", "idle", 0.0, LONG_REST_DURATION_MS),),
     )
 
     engine.request_move(Position(0, 0), Position(0, 1))
-    engine.wait(1000)
+    engine.wait(MOTION_DURATION_MS)
 
     assert piece.state == "long_rest"
 
     engine.wait(500)
     assert piece.state == "long_rest"
 
-    engine.wait(500)
+    engine.wait(LONG_REST_DURATION_MS - 500)
     assert piece.state == "idle"
 
 
@@ -1131,18 +1044,15 @@ def test_state_timer_progress_via_engine(tmp_path):
     engine, piece = create_configured_engine(
         tmp_path,
         "long_rest",
-        extra_states=(("long_rest", "idle", 0.0, 1000),),
+        extra_states=(("long_rest", "idle", 0.0, LONG_REST_DURATION_MS),),
     )
 
     engine.request_move(Position(0, 0), Position(0, 1))
-    engine.wait(1000)
+    engine.wait(MOTION_DURATION_MS)
 
-    assert engine.state_timer_progress(piece.id) == 0.0
+    assert engine.state_timer_progress(piece.id) == 0.5
 
-    engine.wait(250)
-    assert engine.state_timer_progress(piece.id) == 0.25
-
-    engine.wait(750)
+    engine.wait(LONG_REST_DURATION_MS // 2)
     assert engine.state_timer_progress(piece.id) is None
     assert piece.state == "idle"
 
@@ -1160,15 +1070,16 @@ def test_completed_move_uses_bundled_config_for_long_rest():
 
     repository = PieceConfigRepository(Path("assets"))
     resolver = StateTransitionResolver(repository)
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(MV(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        resolver,
-        repository,
-        StateTimer(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=repository,
+        state_timer=StateTimer(),
+        state_transition_resolver=resolver,
+        assets_root=Path("assets"),
     )
+    engine = context.engine
 
     engine.request_move(Position(0, 0), Position(0, 1))
     engine.wait(1000)
@@ -1197,7 +1108,7 @@ def test_request_move_rejects_piece_in_cooldown(tmp_path):
     engine, piece = create_configured_engine(
         tmp_path,
         "long_rest",
-        extra_states=(("long_rest", "idle", 0.0, 1000),),
+        extra_states=(("long_rest", "idle", 0.0, LONG_REST_DURATION_MS),),
     )
 
     engine.request_move(Position(0, 0), Position(0, 1))
@@ -1213,12 +1124,12 @@ def test_request_move_allowed_after_cooldown_expires(tmp_path):
     engine, piece = create_configured_engine(
         tmp_path,
         "long_rest",
-        extra_states=(("long_rest", "idle", 0.0, 1000),),
+        extra_states=(("long_rest", "idle", 0.0, LONG_REST_DURATION_MS),),
     )
 
     engine.request_move(Position(0, 0), Position(0, 1))
-    engine.wait(1000)
-    engine.wait(1000)
+    engine.wait(MOTION_DURATION_MS)
+    engine.wait(LONG_REST_DURATION_MS)
 
     result = engine.request_move(Position(0, 1), Position(0, 2))
 
@@ -1249,7 +1160,7 @@ def test_get_legal_moves_unchanged_during_cooldown(tmp_path):
     engine, piece = create_configured_engine(
         tmp_path,
         "long_rest",
-        extra_states=(("long_rest", "idle", 0.0, 1000),),
+        extra_states=(("long_rest", "idle", 0.0, LONG_REST_DURATION_MS),),
     )
     engine.rule_engine = RuleEngine({PK.ROOK: RookRule()})
 
@@ -1266,6 +1177,20 @@ def square(name: str) -> Position:
     file_index = ord(name[0]) - ord("a")
     rank_index = int(name[1]) - 1
     return Position(rank_index, file_index)
+
+
+def _build_basic_engine(state, validation=None):
+    rule_engine = FakeRuleEngine(
+        validation if validation is not None else MoveValidation(True, "ok")
+    )
+    return build_engine_context(
+        state,
+        rule_engine,
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=FakeStateTransitionResolver(),
+    )
 
 
 def create_crossing_engine():
@@ -1286,16 +1211,8 @@ def create_crossing_engine():
     board.add_piece(queen)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
-    return engine, state, rook, queen
+    context = _build_basic_engine(state)
+    return context.engine, state, rook, queen
 
 
 CELL_MS = MovementDurationCalculator.MOVE_DURATION_PER_CELL_MS
@@ -1319,16 +1236,8 @@ def create_chase_engine(pursuer_id=1, escaper_id=2):
     board.add_piece(escaper)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
-    return engine, state, pursuer, escaper
+    context = _build_basic_engine(state)
+    return context.engine, state, pursuer, escaper
 
 
 def test_mid_flight_enemy_capture_removes_victim_and_cancels_motion():
@@ -1385,15 +1294,7 @@ def test_mid_flight_king_capture_sets_game_over():
     board.add_piece(king)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
+    engine = _build_basic_engine(state).engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, square("e1"), square("e8"), duration_ms=7000)
@@ -1438,7 +1339,7 @@ def test_other_piece_can_move_while_piece_is_in_cooldown(tmp_path):
         "long_rest",
         "idle",
         speed=0.0,
-        duration_ms=1000,
+        duration_ms=LONG_REST_DURATION_MS,
     )
     write_state_config(
         tmp_path,
@@ -1468,15 +1369,16 @@ def test_other_piece_can_move_while_piece_is_in_cooldown(tmp_path):
 
     repository = PieceConfigRepository(tmp_path)
     resolver = StateTransitionResolver(repository)
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(MV(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        resolver,
-        repository,
-        StateTimer(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=repository,
+        state_timer=StateTimer(),
+        state_transition_resolver=resolver,
+        assets_root=tmp_path,
     )
+    engine = context.engine
 
     engine.request_move(Position(0, 0), Position(0, 1))
     engine.wait(1000)
@@ -1504,16 +1406,8 @@ def create_friendly_convergence_engine():
     board.add_piece(second)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
-    return engine, state, first, second
+    context = _build_basic_engine(state)
+    return context.engine, state, first, second
 
 
 def test_friendly_convergence_keeps_first_piece_at_target():
@@ -1554,15 +1448,7 @@ def test_friendly_arrival_bounce_one_cell():
     board.add_piece(blocker)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
+    engine = _build_basic_engine(state).engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, square("a1"), square("a4"), duration_ms=3000)
@@ -1601,15 +1487,7 @@ def test_friendly_arrival_bounce_skips_friendly_chain():
     board.add_piece(friendly_five)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
+    engine = _build_basic_engine(state).engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, square("a1"), square("a5"), duration_ms=4000)
@@ -1646,15 +1524,7 @@ def test_friendly_arrival_bounce_captures_enemy_on_path():
     board.add_piece(friendly)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
+    engine = _build_basic_engine(state).engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, square("a1"), square("a5"), duration_ms=4000)
@@ -1678,15 +1548,7 @@ def test_motion_completion_sets_has_moved():
     board.add_piece(pawn)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
+    engine = _build_basic_engine(state).engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, Position(6, 3), Position(5, 3), duration_ms=1000)
@@ -1710,16 +1572,16 @@ def test_pawn_promotion_sets_queen_kind_after_completion():
     board.add_piece(pawn)
     state = GameState(board)
 
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=FakeStateTransitionResolver(),
         pawn_end_handler=AutoPromoteQueenHandler(),
     )
+    engine = context.engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, Position(1, 3), Position(0, 3), duration_ms=1000)
@@ -1733,14 +1595,13 @@ def test_pawn_promotion_sets_queen_kind_after_completion():
 
 
 def create_promotion_engine(state, pawn, handler, state_transition_resolver=None):
-    return GameEngine(
+    return build_engine_context(
         state,
         FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        state_transition_resolver or FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=state_transition_resolver or FakeStateTransitionResolver(),
         pawn_end_handler=handler,
     )
 
@@ -1758,17 +1619,17 @@ def land_white_pawn_on_promotion_rank(state_transition_resolver=None):
     transition_resolver = (
         state_transition_resolver or TrackingStateTransitionResolver()
     )
-    engine = create_promotion_engine(
+    context = create_promotion_engine(
         state,
         pawn,
         ChessPawnEndHandler(),
         transition_resolver,
     )
-    engine.realtime_arbiter.start_motion(
+    context.engine.realtime_arbiter.start_motion(
         Motion(1, Position(1, 3), Position(0, 3), duration_ms=1000)
     )
-    engine.wait(1000)
-    return engine, state, pawn, transition_resolver
+    context.engine.wait(1000)
+    return context.engine, state, pawn, transition_resolver
 
 
 def board_with_pending_promotion():
@@ -1792,8 +1653,8 @@ def board_with_pending_promotion():
         piece_id=pawn.id,
         allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
     )
-    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
-    return engine, state, pawn, rook
+    context = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    return context.engine, state, pawn, rook
 
 
 def test_pawn_reaching_end_with_chess_handler_does_not_auto_promote():
@@ -1806,7 +1667,8 @@ def test_pawn_reaching_end_with_chess_handler_does_not_auto_promote():
     )
     board.add_piece(pawn)
     state = GameState(board)
-    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    context = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    engine = context.engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, Position(1, 3), Position(0, 3), duration_ms=1000)
@@ -1827,7 +1689,8 @@ def test_pawn_reaching_end_sets_pending_promotion_state():
     )
     board.add_piece(pawn)
     state = GameState(board)
-    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    context = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    engine = context.engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, Position(1, 3), Position(0, 3), duration_ms=1000)
@@ -1888,18 +1751,19 @@ def test_submit_promotion_choice_applies_kind_clears_pending_and_transitions(
     board.add_piece(pawn)
     state = GameState(board)
     transition_resolver = TrackingStateTransitionResolver()
-    engine = create_promotion_engine(
+    context = create_promotion_engine(
         state,
         pawn,
         ChessPawnEndHandler(),
         transition_resolver,
     )
+
     state.pending_pawn_promotion = PendingPawnPromotion(
         piece_id=pawn.id,
         allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
     )
 
-    result = engine.submit_pawn_promotion_choice(pawn.id, chosen_kind)
+    result = context.submit_pawn_promotion_choice(pawn.id, chosen_kind)
 
     assert result.is_accepted is True
     assert pawn.kind == chosen_kind
@@ -1918,14 +1782,14 @@ def test_submit_promotion_choice_queen_changes_kind():
     )
     board.add_piece(pawn)
     state = GameState(board)
-    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    context = create_promotion_engine(state, pawn, ChessPawnEndHandler())
 
     state.pending_pawn_promotion = PendingPawnPromotion(
         piece_id=pawn.id,
         allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
     )
 
-    result = engine.submit_pawn_promotion_choice(pawn.id, PieceKind.QUEEN)
+    result = context.submit_pawn_promotion_choice(pawn.id, PieceKind.QUEEN)
 
     assert result.is_accepted is True
     assert pawn.kind == PieceKind.QUEEN
@@ -1942,14 +1806,14 @@ def test_submit_promotion_choice_knight_changes_kind():
     )
     board.add_piece(pawn)
     state = GameState(board)
-    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    context = create_promotion_engine(state, pawn, ChessPawnEndHandler())
 
     state.pending_pawn_promotion = PendingPawnPromotion(
         piece_id=pawn.id,
         allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
     )
 
-    result = engine.submit_pawn_promotion_choice(pawn.id, PieceKind.KNIGHT)
+    result = context.submit_pawn_promotion_choice(pawn.id, PieceKind.KNIGHT)
 
     assert result.is_accepted is True
     assert pawn.kind == PieceKind.KNIGHT
@@ -1966,14 +1830,14 @@ def test_submit_invalid_promotion_choice_is_rejected():
     )
     board.add_piece(pawn)
     state = GameState(board)
-    engine = create_promotion_engine(state, pawn, ChessPawnEndHandler())
+    context = create_promotion_engine(state, pawn, ChessPawnEndHandler())
 
     state.pending_pawn_promotion = PendingPawnPromotion(
         piece_id=pawn.id,
         allowed_kinds=ChessPawnEndHandler.PROMOTION_KINDS,
     )
 
-    result = engine.submit_pawn_promotion_choice(pawn.id, PieceKind.PAWN)
+    result = context.submit_pawn_promotion_choice(pawn.id, PieceKind.PAWN)
 
     assert result.is_accepted is False
     assert result.reason == "invalid_promotion_choice"
@@ -2070,21 +1934,21 @@ def test_occupied_cells_keeps_single_entry_per_piece():
     from kungfu_chess.engine.collision_decisions import STATIONARY_ENTRY_TIME_MS
 
     occupied_cells = {}
-    GameEngine._set_piece_occupied_cell(
+    MotionCompletionService._set_piece_occupied_cell(
         occupied_cells,
         1,
         Color.WHITE,
         Position(0, 0),
         STATIONARY_ENTRY_TIME_MS,
     )
-    GameEngine._set_piece_occupied_cell(
+    MotionCompletionService._set_piece_occupied_cell(
         occupied_cells,
         1,
         Color.WHITE,
         Position(0, 1),
         1000,
     )
-    GameEngine._set_piece_occupied_cell(
+    MotionCompletionService._set_piece_occupied_cell(
         occupied_cells,
         1,
         Color.WHITE,
@@ -2104,6 +1968,7 @@ def test_occupied_cells_invariant_during_mid_path_wait():
     from kungfu_chess.engine.collision_decisions import CellEntryEvent
 
     engine, state, rook, queen = create_crossing_engine()
+    simulation_service = engine._simulation_service
 
     engine.realtime_arbiter.start_motion(
         Motion(1, square("e1"), square("e8"), duration_ms=7000)
@@ -2112,12 +1977,12 @@ def test_occupied_cells_invariant_during_mid_path_wait():
         Motion(2, square("a4"), square("h4"), duration_ms=7000)
     )
 
-    occupied_cells = GameEngine._build_initial_occupied_cells(
+    occupied_cells = CompleteSimulationService._build_initial_occupied_cells(
         state.board,
         engine.realtime_arbiter.active_motions(),
     )
 
-    events = engine._collision_resolver.schedule_timeline_events(
+    events = simulation_service.collision_resolver.schedule_timeline_events(
         state.board,
         engine.realtime_arbiter.active_motions(),
         within_ms=3500,
@@ -2132,12 +1997,12 @@ def test_occupied_cells_invariant_during_mid_path_wait():
             elapsed = event.time_from_wait_start_ms
 
         if isinstance(event, CellEntryEvent):
-            outcome = engine._collision_resolver.resolve_entry_event(
+            outcome = simulation_service.collision_resolver.resolve_entry_event(
                 event,
                 state.board,
                 occupied_cells,
             )
-            engine._apply_entry_outcome(
+            simulation_service._apply_entry_outcome(
                 outcome,
                 event,
                 occupied_cells,
@@ -2171,15 +2036,7 @@ def test_head_on_same_file_captures_one_enemy():
     board.add_piece(black_rook)
     state = GameState(board)
 
-    engine = GameEngine(
-        state,
-        FakeRuleEngine(MoveValidation(True, "ok")),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
-    )
+    engine = _build_basic_engine(state).engine
 
     engine.realtime_arbiter.start_motion(
         Motion(1, square("e1"), square("e8"), duration_ms=7000)

@@ -1,5 +1,5 @@
 from kungfu_chess.config.state_config import GraphicsConfig, PhysicsConfig, StateConfig
-from kungfu_chess.engine.game_engine import GameEngine
+from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.events.message_bus import MessageBus
 from kungfu_chess.events.move_performed_event import MovePerformedEvent
 from kungfu_chess.model.board import Board
@@ -8,9 +8,9 @@ from kungfu_chess.model.piece import Piece
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
-from kungfu_chess.realtime.motion import Motion
-from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.rules.move_validation import MoveValidation
+
+from tests.helpers.engine_wiring import build_engine_context
 
 
 class FakeRuleEngine:
@@ -23,6 +23,8 @@ class FakeRuleEngine:
 
 class FakeMotionFactory:
     def create(self, piece, source, target):
+        from kungfu_chess.realtime.motion import Motion
+
         return Motion(piece.id, source, target, 1000)
 
 
@@ -91,17 +93,16 @@ def create_engine_with_observer(validation):
         observer.handle,
     )
 
-    engine = GameEngine(
+    context = build_engine_context(
         state,
         FakeRuleEngine(validation),
-        RealTimeArbiter(),
-        FakeMotionFactory(),
-        FakeStateTransitionResolver(),
-        FakeConfigRepository(),
-        FakeStateTimer(),
+        motion_factory=FakeMotionFactory(),
+        config_repository=FakeConfigRepository(),
+        state_timer=FakeStateTimer(),
+        state_transition_resolver=FakeStateTransitionResolver(),
         message_bus=message_bus,
     )
-    return engine, state, observer
+    return context.engine, state, observer
 
 
 def test_move_completion_publishes_move_performed_event():
