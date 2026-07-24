@@ -1,4 +1,4 @@
-from application.game_application import GameApplication
+from kungfu_chess.application.game_application import GameApplication
 from kungfu_chess.model import board
 
 
@@ -15,6 +15,7 @@ def test_create_game_creates_session():
     assert session.game_engine is not None
     assert session.move_history is not None
     assert session.score is not None
+    assert session.message_bus is not None
 
 
 def test_get_game_returns_created_session():

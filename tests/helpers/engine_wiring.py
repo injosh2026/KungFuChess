@@ -112,6 +112,7 @@ class CompleteSimulationService(SimulationService):
             capture_service,
             motion_completion_service,
             timed_state_service,
+            jump_window_tracker,
             message_bus=message_bus,
         )
         self._jump_window_tracker = jump_window_tracker

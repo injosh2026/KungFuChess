@@ -6,10 +6,12 @@ from kungfu_chess.engine.collision_decisions import (
     MotionCompletionEvent,
 )
 from kungfu_chess.engine.collision_resolver import CollisionResolver
+from kungfu_chess.engine.jump_window_tracker import JumpWindowTracker
 from kungfu_chess.engine.services.capture_service import CaptureService
 from kungfu_chess.engine.services.motion_completion_service import (
     MotionCompletionService,
 )
+from kungfu_chess.engine.services.timed_state_service import TimedStateService
 from kungfu_chess.model.board import Board
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.piece import Piece
@@ -28,7 +30,8 @@ class SimulationService:
         collision_resolver: CollisionResolver,
         capture_service: CaptureService,
         motion_completion_service: MotionCompletionService,
-        timed_state_service,
+        timed_state_service: TimedStateService,
+        jump_window_tracker: JumpWindowTracker,
         message_bus=None,
     ):
         self.game_state = game_state
@@ -37,6 +40,7 @@ class SimulationService:
         self._capture_service = capture_service
         self._motion_completion_service = motion_completion_service
         self._timed_state_service = timed_state_service
+        self.jump_window_tracker = jump_window_tracker
         self.message_bus = message_bus
         self._game_elapsed_ms = 0
 
@@ -77,7 +81,7 @@ class SimulationService:
                     self.game_state.board,
                     occupied_cells,
                     active_motions=self.realtime_arbiter.active_motions(),
-                    is_jump_active=self._is_jump_active,
+                    is_jump_active=self.jump_window_tracker.is_active_at,
                 )
                 self._apply_entry_outcome(
                     outcome,
@@ -149,4 +153,32 @@ class SimulationService:
             capturer.color,
             event.cell,
             entry_time_ms(event.path_index),
+        )
+
+    @staticmethod
+    def _clear_piece_from_occupied_cells(
+        occupied_cells: dict[Position, CellOccupant],
+        piece_id: int,
+    ) -> None:
+        for cell, occupant in list(occupied_cells.items()):
+            if occupant.piece_id == piece_id:
+                del occupied_cells[cell]
+
+    @staticmethod
+    def _set_piece_occupied_cell(
+        occupied_cells: dict[Position, CellOccupant],
+        piece_id: int,
+        color,
+        cell: Position,
+        entry_time_ms: int,
+    ) -> None:
+        SimulationService._clear_piece_from_occupied_cells(
+            occupied_cells,
+            piece_id,
+        )
+
+        occupied_cells[cell] = CellOccupant(
+            piece_id=piece_id,
+            color=color,
+            entry_time_ms=entry_time_ms,
         )

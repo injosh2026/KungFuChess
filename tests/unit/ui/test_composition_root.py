@@ -66,7 +66,7 @@ def test_run_attaches_click_handler_after_window_exists():
 
 def test_registered_click_reaches_the_controller():
     board = BoardParser().parse(STARTING_BOARD)
-    controller, _, _, _ = GameFactory.create(board)
+    controller, _, _, _, _ = GameFactory.create(board)
     image = FakeImage()
     mouse_input = MouseInput(controller.handle_click)
 
@@ -99,7 +99,7 @@ def test_to_model_coords_maps_display_click_to_same_cell():
 
 def test_display_click_over_piece_selects_it_through_the_adapter():
     board = BoardParser().parse(STARTING_BOARD)
-    controller, _, _, _ = GameFactory.create(board)
+    controller, _, _, _, _ = GameFactory.create(board)
     image = FakeImage()
     layout = GameUILayout.from_canvas_size(*CANVAS_SIZE)
     canvas_size = lambda: CANVAS_SIZE

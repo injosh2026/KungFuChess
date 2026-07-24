@@ -1,4 +1,4 @@
-from application.game_session import GameSession
+from kungfu_chess.application.game_session import GameSession
 from kungfu_chess.engine.game_factory import GameFactory
 
 

@@ -51,7 +51,7 @@ from kungfu_chess.config.demo_config import (
 
 def build_snapshot(canvas_size_provider):
     board = BoardParser().parse(STARTING_BOARD)
-    _, game_engine, move_history_observer, score_observer = GameFactory.create(board)
+    _, game_engine, move_history_observer, score_observer, _ = GameFactory.create(board)
     calculator = CanvasSizedVisualPositionCalculator(canvas_size_provider)
 
     return SnapshotBuilder(

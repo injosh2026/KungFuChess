@@ -75,7 +75,7 @@ def to_model_coords(
 
 def build_app(image) -> GameApp:
     board = BoardParser().parse(STARTING_BOARD)
-    controller, game_engine, move_history_observer, score_observer = GameFactory.create(board)
+    controller, game_engine, move_history_observer, score_observer, _ = GameFactory.create(board)
 
     canvas_size = image.canvas_size
 
