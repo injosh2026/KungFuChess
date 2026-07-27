@@ -60,14 +60,14 @@ class FakeRenderer:
         return self._canvas
 
 
-class FakeSnapshotBuilder:
+class FakeSnapshotSource:
+
     def __init__(self):
-        self.calls = []
+        self.calls = 0
 
-    def build(self, game_state, selected_cell=None, motions=None, legal_moves=None):
-        self.calls.append((game_state, selected_cell, motions, legal_moves))
-        return ("snapshot", len(self.calls))
-
+    def get_snapshot(self):
+        self.calls += 1
+        return ("snapshot", self.calls)
 
 class FakeGameEngine:
     def __init__(self, game_state):
@@ -116,7 +116,7 @@ def make_app(stop_after=STOP_AFTER, selected=SELECTED):
     image = FakeImage()
     mouse_input = FakeMouseInput()
     renderer = FakeRenderer(canvas)
-    builder = FakeSnapshotBuilder()
+    snapshot_source = FakeSnapshotSource()
     engine = FakeGameEngine(GAME_STATE)
     controller = FakeController(selected)
     clock = FakeClock(CLOCK_SEQUENCE)
@@ -124,14 +124,14 @@ def make_app(stop_after=STOP_AFTER, selected=SELECTED):
     app = GameApp(
         engine,
         controller,
-        builder,
+        snapshot_source,
         renderer,
         image,
         clock,
         mouse_input,
     )
 
-    return app, canvas, image, renderer, builder, engine, mouse_input
+    return app, canvas, image, renderer, snapshot_source, engine, mouse_input
 
 
 def test_opens_and_closes_window():
@@ -160,13 +160,12 @@ def test_advances_engine_with_time_deltas():
     assert engine.waits == EXPECTED_DELTAS
 
 
-def test_builds_snapshot_from_state_and_selection():
-    app, _, _, _, builder, _, _ = make_app()
+def test_requests_snapshot_from_source():
+    app, _, _, _, source, _, _ = make_app()
 
     app.run()
 
-    assert builder.calls == [(GAME_STATE, SELECTED, (), set())] * STOP_AFTER
-
+    assert source.calls == STOP_AFTER
 
 def test_renders_and_presents_each_iteration():
     app, canvas, _, renderer, _, _, _ = make_app()
@@ -184,7 +183,7 @@ def test_closes_window_on_unexpected_error():
     app = GameApp(
         engine,
         FakeController(SELECTED),
-        FakeSnapshotBuilder(),
+        FakeSnapshotSource(),
         RaisingRenderer(),
         image,
         FakeClock(CLOCK_SEQUENCE),

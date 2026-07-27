@@ -24,7 +24,7 @@ class GameApp:
         self,
         game_engine,
         controller,
-        snapshot_builder,
+        snapshot_source,
         renderer,
         image,
         clock,
@@ -32,11 +32,15 @@ class GameApp:
     ):
         self._game_engine = game_engine
         self._controller = controller
-        self._snapshot_builder = snapshot_builder
+        self._snapshot_source = snapshot_source
         self._renderer = renderer
         self._image = image
         self._clock = clock
         self._mouse_input = mouse_input
+
+    @property
+    def snapshot_source(self):
+        return self._snapshot_source
 
     def run(self) -> None:
         self._image.open_window()
@@ -53,12 +57,7 @@ class GameApp:
 
                 self._game_engine.wait(delta_ms)
 
-                snapshot = self._snapshot_builder.build(
-                    self._game_engine.game_state,
-                    self._controller.selected_position,
-                    self._game_engine.active_motions(),
-                    self._controller.legal_moves,
-                )
+                snapshot = self._snapshot_source.get_snapshot()
 
                 canvas = self._renderer.render(snapshot)
                 canvas.present(PRESENT_WAIT_MS)

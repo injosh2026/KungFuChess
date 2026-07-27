@@ -7,7 +7,7 @@ from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.piece_state import PieceState
 from kungfu_chess.model.position import Position
-from kungfu_chess.view.game_snapshot import (
+from kungfu_chess.snapshot.game_snapshot import (
     EMPTY_RUNTIME_PROGRESS,
     GameSnapshot,
     PieceSnapshot,

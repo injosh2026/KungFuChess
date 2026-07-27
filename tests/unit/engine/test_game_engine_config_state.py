@@ -130,7 +130,7 @@ def test_completed_move_uses_bundled_config_for_long_rest():
 
 
 def test_motion_still_provides_visual_position_in_snapshot(tmp_path):
-    from kungfu_chess.view.snapshot_builder import SnapshotBuilder
+    from kungfu_chess.snapshot.snapshot_builder import SnapshotBuilder
 
     engine, _piece = create_configured_engine(tmp_path, "idle")
 

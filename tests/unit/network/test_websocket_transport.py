@@ -2,29 +2,32 @@ import asyncio
 
 from kungfu_chess.network.websocket_server import WebSocketServer
 from kungfu_chess.network.websocket_client import WebSocketClient
+from kungfu_chess.server.game_server import GameServer
 
 
 def test_websocket_client_receives_broadcast():
 
     async def run():
+        game_server = GameServer()
 
-        server = WebSocketServer()
+        server = WebSocketServer(game_server)
 
         await server.start()
 
-        client1 = WebSocketClient()
-        client2 = WebSocketClient()
+        try:
+            client1 = WebSocketClient()
+            client2 = WebSocketClient()
 
-        await client1.connect()
-        await client2.connect()
+            await client1.connect()
+            await client2.connect()
 
-        await client1.send(
-            "hello"
-        )
+            await client1.send("hello")
 
-        message = await client2.receive()
+            message = await client2.receive()
 
-        assert message == "hello"
+            assert message == "hello"
 
+        finally:
+            await server.stop()
 
     asyncio.run(run())

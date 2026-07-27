@@ -1,7 +1,9 @@
 import asyncio
 
+from kungfu_chess.network.connection import Connection
 
-class WebSocketConnection:
+
+class WebSocketConnection(Connection):
 
     def __init__(self, websocket):
         self.websocket = websocket

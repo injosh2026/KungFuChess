@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from kungfu_chess.view.game_snapshot import GameSnapshot
+from kungfu_chess.snapshot.game_snapshot import GameSnapshot
 
 
 class Renderer(ABC):

@@ -5,6 +5,7 @@ from kungfu_chess.events.message_bus import MessageBus
 from kungfu_chess.history.move_history_observer import MoveHistoryObserver
 from kungfu_chess.input.controller import Controller
 from kungfu_chess.scoring.score_observer import ScoreObserver
+from kungfu_chess.snapshot.snapshot_builder import SnapshotBuilder
 
 
 @dataclass(slots=True)
@@ -21,3 +22,4 @@ class GameSession:
     move_history: MoveHistoryObserver
     score: ScoreObserver
     message_bus: MessageBus
+    snapshot_builder: SnapshotBuilder

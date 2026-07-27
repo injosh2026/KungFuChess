@@ -1,7 +1,3 @@
-import asyncio
-import json
-from typing import Callable
-
 from kungfu_chess.events.messages.move_requested_message import MoveRequestedMessage
 from kungfu_chess.model.position import Position
 from kungfu_chess.network.websocket_connection import WebSocketConnection
@@ -40,6 +36,10 @@ class WebSocketServer:
 
                         self.sessions[player_id] = session
 
+                        session.send_initial_snapshot()
+
+                        session.send_snapshot(None)
+
                         print(
                             player_id,
                             "joined as",
@@ -53,7 +53,7 @@ class WebSocketServer:
                             player_id,
                             message,
                         )
-                        
+
                         parts = message.split()
 
                         source = Position(
@@ -72,6 +72,8 @@ class WebSocketServer:
                                 destination=destination,
                             )
                         )
+                    else:
+                        await self.broadcast(message)
 
             finally:
                 self.clients.remove(websocket)
@@ -86,3 +88,9 @@ class WebSocketServer:
 
         for client in self.clients:
             await client.send(message)
+
+    async def stop(self):
+
+        self.server.close()
+
+        await self.server.wait_closed()

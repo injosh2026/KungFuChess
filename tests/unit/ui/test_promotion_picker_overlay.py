@@ -1,6 +1,6 @@
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
-from kungfu_chess.view.game_snapshot import PromotionSnapshot
+from kungfu_chess.snapshot.game_snapshot import PromotionSnapshot
 
 CANVAS_SIZE = (800, 800)
 

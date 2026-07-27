@@ -1,6 +1,6 @@
 from img import Img
 from kungfu_chess.model.piece_kind import PieceKind
-from kungfu_chess.view.game_snapshot import PromotionSnapshot
+from kungfu_chess.snapshot.game_snapshot import PromotionSnapshot
 
 PANEL_PADDING = 12
 BUTTON_WIDTH = 160

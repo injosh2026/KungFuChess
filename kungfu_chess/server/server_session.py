@@ -2,6 +2,7 @@ from typing import Any
 
 from kungfu_chess.application.game_session import GameSession
 from kungfu_chess.events.move_performed_event import MovePerformedEvent
+from kungfu_chess.network.snapshot_serializer import SnapshotSerializer
 from kungfu_chess.server.player_color import PlayerColor
 from kungfu_chess.server.match import Match
 
@@ -25,7 +26,7 @@ class ServerSession:
 
         self.game_session.message_bus.subscribe(
             MovePerformedEvent,
-            self.send,
+            self.send_snapshot,
         )
 
     def receive(self, message: Any) -> None:
@@ -51,3 +52,22 @@ class ServerSession:
 
         if self.connection is not None:
             self.connection.send(message)
+
+    def send_snapshot(self, event):
+
+        snapshot = self.game_session.snapshot_builder.build(
+            self.game_session.game_engine.game_state
+        )
+
+        message = SnapshotSerializer.serialize(snapshot)
+
+        self.send(message)
+
+    def send_initial_snapshot(self):
+        snapshot = self.game_session.snapshot_builder.build(
+            self.game_session.game_engine.game_state
+        )
+
+        message = SnapshotSerializer.serialize(snapshot)
+
+        self.send(message)

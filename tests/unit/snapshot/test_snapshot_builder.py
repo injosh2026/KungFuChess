@@ -11,7 +11,7 @@ from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
 from kungfu_chess.realtime.state_timer import StateTimer
 from kungfu_chess.view.move_history_entry import MoveHistoryEntry
 from kungfu_chess.view.runtime_role import RuntimeRole
-from kungfu_chess.view.snapshot_builder import SnapshotBuilder
+from kungfu_chess.snapshot.snapshot_builder import SnapshotBuilder
 
 
 def create_game_state():

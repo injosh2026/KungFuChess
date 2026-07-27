@@ -5,10 +5,33 @@ from kungfu_chess.server.player_color import PlayerColor
 from kungfu_chess.server.server_session import ServerSession
 
 
+class DummySnapshotBuilder:
+
+    def build(self, game_state):
+        from kungfu_chess.snapshot.game_snapshot import GameSnapshot
+
+        return GameSnapshot(
+            board_width=8,
+            board_height=8,
+            pieces=[],
+            selected_cell=None,
+            legal_moves=set(),
+            game_over=False,
+        )
+
+
+class DummyGameEngine:
+
+    def __init__(self):
+        self.game_state = object()
+
+
 class DummyGameSession:
 
     def __init__(self):
         self.message_bus = MessageBus()
+        self.snapshot_builder = DummySnapshotBuilder()
+        self.game_engine = DummyGameEngine()
 
 
 class DummyMessage:
@@ -64,8 +87,8 @@ def test_server_session_stores_outgoing_messages():
 
     game_session.message_bus.publish(event)
 
-    assert session.outbox == [event]
-
+    assert len(session.outbox) == 1
+    assert "GAME_SNAPSHOT" in session.outbox[0]
 
 def test_server_session_publishes_received_message():
 

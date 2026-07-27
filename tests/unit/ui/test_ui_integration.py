@@ -15,7 +15,7 @@ from kungfu_chess.ui.game_ui_layout import GameUILayout
 from kungfu_chess.ui.move_history_panel import MoveHistoryPanel
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
-from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot
+from kungfu_chess.snapshot.game_snapshot import GameSnapshot, PieceSnapshot
 
 CANVAS_SIZE = (1000, 800)
 STATE = "move"

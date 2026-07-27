@@ -6,7 +6,7 @@ from kungfu_chess.model.piece_state import PieceState
 from kungfu_chess.model.position import Position
 from kungfu_chess.ui.animation_data import AnimationData
 from kungfu_chess.ui.animation_provider import AnimationProvider
-from kungfu_chess.view.game_snapshot import PieceSnapshot
+from kungfu_chess.snapshot.game_snapshot import PieceSnapshot
 from kungfu_chess.view.runtime_role import RuntimeRole
 
 FPS = 4

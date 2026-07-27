@@ -7,6 +7,9 @@ it connects existing components but contains no game logic.
 
 from collections.abc import Callable
 
+from kungfu_chess.client.client import Client
+from kungfu_chess.client.client_session import ClientSession
+from kungfu_chess.client.network_runner import NetworkRunner
 from kungfu_chess.config.demo_config import (
     ASSETS_ROOT,
     BOARD_FILENAME,
@@ -18,7 +21,7 @@ from kungfu_chess.input.click_router import ClickRouter
 from kungfu_chess.input.mouse_input import MouseInput
 from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.model.position import Position
-from kungfu_chess.snapshot.local_snapshot_source import LocalSnapshotSource
+from kungfu_chess.snapshot.network_snapshot_source import NetworkSnapshotSource
 from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.ui.board_coordinates_renderer import BoardCoordinatesRenderer
@@ -32,7 +35,6 @@ from kungfu_chess.ui.player_panel_data import PlayerPanelConfig
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
-from kungfu_chess.snapshot.snapshot_builder import SnapshotBuilder
 from kungfu_chess.view.visual_position import VisualPositionCalculator
 
 MODEL_CELL_SIZE = GameFactory.CELL_SIZE
@@ -74,7 +76,10 @@ def to_model_coords(
     )
 
 
-def build_app(image) -> GameApp:
+def build_network_runner(
+    image,
+    connection,
+) -> NetworkRunner:
     board = BoardParser().parse(STARTING_BOARD)
     controller, game_engine, move_history_observer, score_observer, _ = (
         GameFactory.create(board)
@@ -107,21 +112,15 @@ def build_app(image) -> GameApp:
         PlayerPanelConfig("White", "W"),
         PlayerPanelConfig("Black", "B"),
     )
-    visual_position_calculator = CanvasSizedVisualPositionCalculator(canvas_size)
 
-    snapshot_builder = SnapshotBuilder(
-        visual_position_calculator,
-        get_runtime_progress=game_engine.runtime_progress,
-        get_move_history=move_history_observer.entries,
-        get_player_scores=score_observer.scores,
+    snapshot_source = NetworkSnapshotSource(connection)
+
+    client_session = ClientSession(
+        "player",
+        connection,
+        snapshot_source,
     )
-
-    snapshot_source = LocalSnapshotSource(
-        snapshot_builder,
-        game_engine,
-        controller,
-    )
-
+    
     click_router = ClickRouter(
         controller,
         promotion_picker,
@@ -134,7 +133,7 @@ def build_app(image) -> GameApp:
 
     mouse_input = MouseInput(click_router)
 
-    return GameApp(
+    game_app = GameApp(
         game_engine,
         controller,
         snapshot_source,
@@ -142,4 +141,13 @@ def build_app(image) -> GameApp:
         image,
         clock,
         mouse_input,
+    )
+
+    client = Client(
+        client_session,
+    )
+
+    return NetworkRunner(
+        client,
+        game_app,
     )

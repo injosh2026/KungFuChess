@@ -6,7 +6,9 @@ from kungfu_chess.engine.jump_duration_resolver import JumpDurationResolver
 from kungfu_chess.engine.jump_window_tracker import JumpWindowTracker
 from kungfu_chess.engine.services.capture_service import CaptureService
 from kungfu_chess.engine.services.jump_service import JumpService
-from kungfu_chess.engine.services.motion_completion_service import MotionCompletionService
+from kungfu_chess.engine.services.motion_completion_service import (
+    MotionCompletionService,
+)
 from kungfu_chess.engine.services.move_service import MoveService
 from kungfu_chess.engine.services.pawn_promotion_service import PawnPromotionService
 from kungfu_chess.engine.services.simulation_service import SimulationService
@@ -14,7 +16,9 @@ from kungfu_chess.engine.services.state_transition_service import StateTransitio
 from kungfu_chess.engine.services.timed_state_service import TimedStateService
 from kungfu_chess.events.handlers.jump_request_handler import JumpRequestHandler
 from kungfu_chess.events.handlers.move_request_handler import MoveRequestHandler
-from kungfu_chess.events.handlers.promotion_request_handler import PromotionRequestHandler
+from kungfu_chess.events.handlers.promotion_request_handler import (
+    PromotionRequestHandler,
+)
 from kungfu_chess.events.message_bus import MessageBus
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.engine.collision_resolver import CollisionResolver
@@ -23,7 +27,9 @@ from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.state_transition_resolver import StateTransitionResolver
 from kungfu_chess.events.messages.jump_requested_message import JumpRequestedMessage
 from kungfu_chess.events.messages.move_requested_message import MoveRequestedMessage
-from kungfu_chess.events.messages.promotion_requested_message import PromotionRequestedMessage
+from kungfu_chess.events.messages.promotion_requested_message import (
+    PromotionRequestedMessage,
+)
 from kungfu_chess.events.move_performed_event import MovePerformedEvent
 from kungfu_chess.history.move_history_observer import MoveHistoryObserver
 from kungfu_chess.scoring.score_observer import ScoreObserver
@@ -43,6 +49,7 @@ from kungfu_chess.rules.pawn_rule import PawnRule
 from kungfu_chess.rules.queen_rule import QueenRule
 from kungfu_chess.rules.rook_rule import RookRule
 from kungfu_chess.model.piece_kind import PieceKind
+from kungfu_chess.snapshot.snapshot_builder import SnapshotBuilder
 
 ASSETS_ROOT = Path(__file__).resolve().parent.parent.parent / "assets"
 
@@ -209,20 +216,29 @@ class GameFactory:
 
         controller = Controller(board, board_mapper, game_engine, message_bus)
 
-        return controller, game_engine, move_history_observer, score_observer, message_bus
+        return (
+            controller,
+            game_engine,
+            move_history_observer,
+            score_observer,
+            message_bus,
+        )
 
     @staticmethod
     def create_session(board):
         """
         Creates a complete game session object.
         """
-        (
-            controller,
-            game_engine,
-            move_history,
-            score,
-            message_bus
-        ) = GameFactory.create(board)
+
+        controller, game_engine, move_history, score, message_bus = GameFactory.create(
+            board
+        )
+
+        snapshot_builder = SnapshotBuilder(
+            get_runtime_progress=game_engine.runtime_progress,
+            get_move_history=move_history.entries,
+            get_player_scores=score.scores,
+        )
 
         return GameSession(
             controller=controller,
@@ -230,4 +246,5 @@ class GameFactory:
             move_history=move_history,
             score=score,
             message_bus=message_bus,
+            snapshot_builder=snapshot_builder,
         )

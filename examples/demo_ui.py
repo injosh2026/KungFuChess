@@ -39,7 +39,7 @@ from kungfu_chess.ui.player_panel_data import PlayerPanelConfig
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
-from kungfu_chess.view.snapshot_builder import SnapshotBuilder
+from kungfu_chess.snapshot.snapshot_builder import SnapshotBuilder
 from kungfu_chess.config.demo_config import (
     ASSETS_ROOT,
     BOARD_FILENAME,

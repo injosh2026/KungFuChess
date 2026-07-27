@@ -1,36 +1,32 @@
 import asyncio
 import sys
 
+from img import Img
+
 from kungfu_chess.network.websocket_client import WebSocketClient
+from kungfu_chess.ui.network_composition_root import build_network_runner
 
 
 async def main():
 
     player_id = sys.argv[1]
 
-    client = WebSocketClient()
+    websocket_client = WebSocketClient()
 
-    await client.connect()
+    await websocket_client.connect()
 
-    print(
-        "Connected as",
-        player_id,
+    connection = websocket_client
+
+    await connection.send(
+        f"JOIN {player_id}",
     )
 
-    await client.send(f"JOIN {player_id}")
+    runner = build_network_runner(
+        Img(),
+        connection,
+    )
 
-    print("Sending move")
-
-    await client.send("MOVE 0 0 0 1")
-
-    while True:
-
-        message = await client.receive()
-
-        print(
-            "Received:",
-            message,
-        )
+    await runner.run()
 
 
 if __name__ == "__main__":

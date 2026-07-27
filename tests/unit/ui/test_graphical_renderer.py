@@ -13,7 +13,7 @@ from kungfu_chess.ui.graphical_renderer import (
     GraphicalRenderer,
 )
 from kungfu_chess.ui.game_ui_layout import GameUILayout
-from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot, PromotionSnapshot
+from kungfu_chess.snapshot.game_snapshot import GameSnapshot, PieceSnapshot, PromotionSnapshot
 from kungfu_chess.view.move_history_entry import MoveHistoryEntry
 from kungfu_chess.view.runtime_role import RuntimeRole
 import numpy as np

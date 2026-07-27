@@ -13,7 +13,7 @@ from kungfu_chess.ui.player_panel_data import PlayerPanelConfig, PlayerPanelData
 from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
-from kungfu_chess.view.game_snapshot import GameSnapshot, PieceSnapshot
+from kungfu_chess.snapshot.game_snapshot import GameSnapshot, PieceSnapshot
 from kungfu_chess.view.runtime_role import RuntimeRole
 from kungfu_chess.view.renderer import Renderer
 

@@ -1,6 +1,5 @@
 from kungfu_chess.server.server_session import ServerSession
 from kungfu_chess.server.match import Match
-from kungfu_chess.application.game_session import GameSession
 
 
 class GameServer:

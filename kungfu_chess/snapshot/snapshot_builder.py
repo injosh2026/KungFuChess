@@ -4,7 +4,7 @@ from types import MappingProxyType
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.model.position import Position
 from kungfu_chess.view.visual_position import VisualPositionCalculator
-from kungfu_chess.view.game_snapshot import (
+from kungfu_chess.snapshot.game_snapshot import (
     EMPTY_RUNTIME_PROGRESS,
     GameSnapshot,
     PieceSnapshot,

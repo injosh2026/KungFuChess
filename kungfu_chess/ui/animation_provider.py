@@ -3,7 +3,7 @@ from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.piece_code import piece_code
 from kungfu_chess.ui.sprite_animator import SpriteAnimator
 from kungfu_chess.ui.sprite_library import SpriteLibrary
-from kungfu_chess.view.game_snapshot import PieceSnapshot
+from kungfu_chess.snapshot.game_snapshot import PieceSnapshot
 from kungfu_chess.view.runtime_role import RuntimeRole
 
 
