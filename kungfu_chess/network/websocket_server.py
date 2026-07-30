@@ -1,5 +1,8 @@
+from kungfu_chess.events.messages.jump_requested_message import JumpRequestedMessage
 from kungfu_chess.events.messages.move_requested_message import MoveRequestedMessage
-from kungfu_chess.model.position import Position
+from kungfu_chess.events.messages.promotion_requested_message import (
+    PromotionRequestedMessage,
+)
 from kungfu_chess.network.websocket_connection import WebSocketConnection
 
 
@@ -11,6 +14,32 @@ class WebSocketServer:
         self.port = port
         self.clients = set()
         self.sessions = {}
+
+    def receive_input_command(self, player_id: str, message_text: str) -> bool:
+        """
+        Translates a wire-format input command into a domain message
+        and forwards it to the player's server session.
+        """
+        domain_message = self._parse_input_command(message_text)
+
+        if domain_message is None:
+            return False
+
+        self.sessions[player_id].receive(domain_message)
+        return True
+
+    @staticmethod
+    def _parse_input_command(message_text: str):
+        if message_text.startswith("MOVE"):
+            return MoveRequestedMessage.from_wire_format(message_text)
+
+        if message_text.startswith("JUMP"):
+            return JumpRequestedMessage.from_wire_format(message_text)
+
+        if message_text.startswith("PROMOTION"):
+            return PromotionRequestedMessage.from_wire_format(message_text)
+
+        return None
 
     async def start(self):
 
@@ -46,32 +75,19 @@ class WebSocketServer:
                             session.color,
                         )
 
-                    elif message.startswith("MOVE"):
+                    elif (
+                        message.startswith("MOVE")
+                        or message.startswith("JUMP")
+                        or message.startswith("PROMOTION")
+                    ):
 
                         print(
-                            "MOVE received from",
+                            "Input command received from",
                             player_id,
                             message,
                         )
 
-                        parts = message.split()
-
-                        source = Position(
-                            int(parts[1]),
-                            int(parts[2]),
-                        )
-
-                        destination = Position(
-                            int(parts[3]),
-                            int(parts[4]),
-                        )
-
-                        self.sessions[player_id].receive(
-                            MoveRequestedMessage(
-                                source=source,
-                                destination=destination,
-                            )
-                        )
+                        self.receive_input_command(player_id, message)
                     else:
                         await self.broadcast(message)
 

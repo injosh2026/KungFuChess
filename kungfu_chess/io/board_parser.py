@@ -3,6 +3,7 @@ from kungfu_chess.model.piece import Piece
 from kungfu_chess.model.piece_color import Color
 from kungfu_chess.model.piece_kind import PieceKind
 from kungfu_chess.model.position import Position
+from kungfu_chess.snapshot.game_snapshot import GameSnapshot, PieceSnapshot
 
 
 class BoardParser:
@@ -78,6 +79,29 @@ class BoardParser:
                 piece_id += 1
 
         return board
+
+    def from_snapshot(self, snapshot: GameSnapshot) -> Board:
+        """
+        Creates a board from an immutable game snapshot.
+
+        Piece ids and positions are preserved from the snapshot.
+        Fields not present in PieceSnapshot use Piece defaults.
+        """
+        board = Board(snapshot.board_width, snapshot.board_height)
+
+        for piece_snapshot in snapshot.pieces:
+            board.add_piece(self._create_piece_from_snapshot(piece_snapshot))
+
+        return board
+
+    def _create_piece_from_snapshot(self, piece_snapshot: PieceSnapshot) -> Piece:
+        return Piece(
+            id=piece_snapshot.piece_id,
+            color=piece_snapshot.color,
+            kind=piece_snapshot.kind,
+            cell=piece_snapshot.position,
+            state=piece_snapshot.state,
+        )
 
     def _create_piece(self, token: str, piece_id: int, position: Position) -> Piece:
         """

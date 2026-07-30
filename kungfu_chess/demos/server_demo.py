@@ -1,5 +1,6 @@
 import asyncio
 
+from kungfu_chess.config.demo_config import STARTING_BOARD
 from kungfu_chess.engine.game_factory import GameFactory
 from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.network.websocket_server import WebSocketServer
@@ -15,12 +16,7 @@ async def game_loop(game_session):
 
 async def main():
 
-    board = BoardParser().parse(
-        [
-            "wR .",
-            ". bK",
-        ]
-    )
+    board = BoardParser().parse(STARTING_BOARD)
 
     game_session = GameFactory.create_session(board)
 

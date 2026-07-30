@@ -4,6 +4,7 @@ import sys
 from img import Img
 
 from kungfu_chess.network.websocket_client import WebSocketClient
+from kungfu_chess.network.websocket_connection import WebSocketConnection
 from kungfu_chess.ui.network_composition_root import build_network_runner
 
 
@@ -15,11 +16,11 @@ async def main():
 
     await websocket_client.connect()
 
-    connection = websocket_client
-
-    await connection.send(
+    await websocket_client.send(
         f"JOIN {player_id}",
     )
+
+    connection = WebSocketConnection(websocket_client.websocket)
 
     runner = build_network_runner(
         Img(),
