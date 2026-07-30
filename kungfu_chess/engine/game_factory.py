@@ -155,12 +155,24 @@ class GameFactory:
             message_bus,
         )
 
+        simulation_service = SimulationService(
+            game_state,
+            realtime_arbiter,
+            collision_resolver,
+            capture_service,
+            motion_completion_service,
+            timed_state_service,
+            jump_window_tracker,
+        )
+
         move_service = MoveService(
             game_state,
             rule_engine,
             realtime_arbiter,
             motion_factory,
             config_repository,
+            message_bus,
+            lambda: simulation_service.elapsed_ms,
         )
 
         jump_service = JumpService(
@@ -171,16 +183,6 @@ class GameFactory:
             jump_window_tracker,
             jump_duration_resolver,
             config_repository,
-        )
-
-        simulation_service = SimulationService(
-            game_state,
-            realtime_arbiter,
-            collision_resolver,
-            capture_service,
-            motion_completion_service,
-            timed_state_service,
-            jump_window_tracker,
         )
 
         game_engine = GameEngine(

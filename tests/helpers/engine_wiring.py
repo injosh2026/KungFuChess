@@ -44,7 +44,9 @@ class CooldownAwareMoveService(MoveService):
         realtime_arbiter,
         motion_factory,
         config_repository,
-        state_timer,
+        message_bus,
+        get_elapsed_ms,
+        state_timer=None,
     ):
         super().__init__(
             game_state,
@@ -52,6 +54,8 @@ class CooldownAwareMoveService(MoveService):
             realtime_arbiter,
             motion_factory,
             config_repository,
+            message_bus,
+            get_elapsed_ms,
         )
         self._state_timer = state_timer
 
@@ -240,6 +244,8 @@ def build_engine_context(
         realtime_arbiter,
         motion_factory,
         config_repository,
+        message_bus,
+        lambda: simulation_service.elapsed_ms,
         state_timer,
     )
     jump_service = JumpService(

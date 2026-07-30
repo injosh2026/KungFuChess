@@ -108,6 +108,10 @@ class SimulationService:
 
         return captured_pieces
 
+    @property
+    def elapsed_ms(self) -> int:
+        return self._game_elapsed_ms
+
     @staticmethod
     def _build_initial_occupied_cells(
         board: Board,

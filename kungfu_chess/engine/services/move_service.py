@@ -1,7 +1,11 @@
+from collections.abc import Callable
+
 from kungfu_chess.config.piece_code import piece_code
 from kungfu_chess.config.piece_config_repository import PieceConfigRepository
 from kungfu_chess.engine.motion_factory import MotionFactory
 from kungfu_chess.engine.move_result import MoveResult
+from kungfu_chess.events.message_bus import MessageBus
+from kungfu_chess.events.motion_started_event import MotionStartedEvent
 from kungfu_chess.model.game_state import GameState
 from kungfu_chess.realtime.real_time_arbiter import RealTimeArbiter
 from kungfu_chess.rules.rule_engine import RuleEngine
@@ -19,12 +23,16 @@ class MoveService:
         realtime_arbiter: RealTimeArbiter,
         motion_factory: MotionFactory,
         config_repository: PieceConfigRepository,
+        message_bus: MessageBus,
+        get_elapsed_ms: Callable[[], int],
     ):
         self.game_state = game_state
         self.rule_engine = rule_engine
         self.realtime_arbiter = realtime_arbiter
         self.motion_factory = motion_factory
         self._config_repository = config_repository
+        self._message_bus = message_bus
+        self._get_elapsed_ms = get_elapsed_ms
 
     def request_move(self, source, destination) -> MoveResult:
 
@@ -59,5 +67,16 @@ class MoveService:
 
         if not self.realtime_arbiter.start_motion(motion):
             return MoveResult(False, PIECE_IN_MOTION)
+
+        self._message_bus.publish(
+            MotionStartedEvent(
+                timestamp_ms=self._get_elapsed_ms(),
+                piece_id=piece.id,
+                start=source,
+                target=destination,
+                duration_ms=motion.duration_ms,
+                state=piece.state,
+            )
+        )
 
         return MoveResult(True, "ok")

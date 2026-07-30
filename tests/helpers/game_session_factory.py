@@ -141,6 +141,8 @@ def create_game(board):
         realtime_arbiter,
         motion_factory,
         config_repository,
+        message_bus,
+        lambda: simulation_service.elapsed_ms,
     )
 
     jump_service = JumpService(
