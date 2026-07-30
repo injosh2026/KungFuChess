@@ -9,6 +9,7 @@ from collections.abc import Callable
 from types import SimpleNamespace
 
 from kungfu_chess.client.client import Client
+from kungfu_chess.client.client_motion_tracker import ClientMotionTracker
 from kungfu_chess.client.client_session import ClientSession
 from kungfu_chess.client.connection_command_sender import ConnectionCommandSender
 from kungfu_chess.client.network_runner import NetworkRunner
@@ -36,8 +37,12 @@ from kungfu_chess.input.controller import Controller
 from kungfu_chess.input.mouse_input import MouseInput
 from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.rules.pawn_end_outcome import PendingPawnPromotion
+from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.snapshot.network_snapshot_source import NetworkSnapshotSource
 from kungfu_chess.ui.animation_clock import AnimationClock
+from kungfu_chess.ui.canvas_sized_visual_position_calculator import (
+    CanvasSizedVisualPositionCalculator,
+)
 from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.ui.board_coordinates_renderer import BoardCoordinatesRenderer
 from kungfu_chess.ui.game_app import GameApp
@@ -117,6 +122,20 @@ def build_network_runner(
     )
     clock = AnimationClock()
     provider = AnimationProvider(library, clock)
+    motion_tracker = ClientMotionTracker()
+    visual_position_calculator = CanvasSizedVisualPositionCalculator(canvas_size)
+
+    def on_motion_started(event):
+        motion_tracker.start(
+            Motion(
+                piece_id=event.piece_id,
+                start=event.start,
+                target=event.target,
+                duration_ms=event.duration_ms,
+            ),
+            event.state,
+        )
+
     promotion_picker = PromotionPickerOverlay()
     white_history_panel = MoveHistoryPanel("White")
     black_history_panel = MoveHistoryPanel("Black")
@@ -139,12 +158,16 @@ def build_network_runner(
     snapshot_source = NetworkSnapshotSource(
         connection,
         controller=controller,
+        motion_tracker=motion_tracker,
+        animation_clock=clock,
+        visual_position_calculator=visual_position_calculator,
     )
 
     client_session = ClientSession(
         "player",
         connection,
         snapshot_source,
+        on_motion_started=on_motion_started,
     )
 
     def sync_controller_board_from_snapshot() -> None:
