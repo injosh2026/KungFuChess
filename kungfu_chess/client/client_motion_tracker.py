@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from kungfu_chess.model.position import Position
 from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.snapshot.game_snapshot import GameSnapshot
 
@@ -20,8 +21,16 @@ class ClientMotionTracker:
 
     def __init__(self):
         self._tracked_motions: dict[int, TrackedMotion] = {}
+        self._authoritative_positions: dict[int, Position] = {}
 
     def start(self, motion: Motion, state: str) -> None:
+        authoritative_position = self._authoritative_positions.get(motion.piece_id)
+        if (
+            authoritative_position is not None
+            and authoritative_position == motion.target
+        ):
+            return
+
         self._tracked_motions[motion.piece_id] = TrackedMotion(
             motion=motion,
             state=state,
@@ -40,8 +49,20 @@ class ClientMotionTracker:
             motion.advance_time(min(delta_ms, remaining_ms))
 
     def reconcile(self, snapshot: GameSnapshot) -> None:
-        for piece in snapshot.pieces:
-            self._tracked_motions.pop(piece.piece_id, None)
+        self._authoritative_positions = {
+            piece.piece_id: piece.position
+            for piece in snapshot.pieces
+        }
+
+        for piece_id, tracked in list(self._tracked_motions.items()):
+            authoritative_position = self._authoritative_positions.get(piece_id)
+
+            if authoritative_position is None:
+                del self._tracked_motions[piece_id]
+                continue
+
+            if authoritative_position == tracked.motion.target:
+                del self._tracked_motions[piece_id]
 
     def active_motions(self) -> tuple[Motion, ...]:
         return tuple(

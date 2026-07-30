@@ -250,3 +250,54 @@ def test_network_snapshot_source_reconcile_clears_motion_overlay_on_update():
 
     assert render_snapshot.pieces[0].visual_position is None
     assert render_snapshot.pieces[0].position == Position(0, 3)
+
+
+def test_network_snapshot_source_keeps_unrelated_motion_on_reconcile():
+    tracker = ClientMotionTracker()
+
+    source = NetworkSnapshotSource(
+        None,
+        motion_tracker=tracker,
+    )
+
+    source.update(_create_authoritative_snapshot())
+
+    tracker.start(
+        Motion(
+            piece_id=1,
+            start=Position(0, 0),
+            target=Position(0, 3),
+            duration_ms=1000,
+            elapsed_ms=250,
+        ),
+        "move",
+    )
+
+    source.update(
+        GameSnapshot(
+            board_width=8,
+            board_height=8,
+            pieces=[
+                PieceSnapshot(
+                    piece_id=1,
+                    kind=PieceKind.ROOK,
+                    color=Color.WHITE,
+                    position=Position(0, 0),
+                    state="move",
+                ),
+                PieceSnapshot(
+                    piece_id=2,
+                    kind=PieceKind.ROOK,
+                    color=Color.BLACK,
+                    position=Position(1, 1),
+                    state="idle",
+                ),
+            ],
+            selected_cell=None,
+            legal_moves=set(),
+            game_over=False,
+        )
+    )
+
+    assert len(tracker.active_motions()) == 1
+    assert tracker.active_motions()[0].piece_id == 1

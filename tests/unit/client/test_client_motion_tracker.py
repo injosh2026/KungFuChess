@@ -6,7 +6,7 @@ from kungfu_chess.realtime.motion import Motion
 from kungfu_chess.snapshot.game_snapshot import GameSnapshot, PieceSnapshot
 
 
-def create_snapshot(piece_id=1):
+def create_snapshot(piece_id=1, position=Position(0, 0)):
     return GameSnapshot(
         board_width=8,
         board_height=8,
@@ -15,7 +15,7 @@ def create_snapshot(piece_id=1):
                 piece_id=piece_id,
                 kind=PieceKind.ROOK,
                 color=Color.WHITE,
-                position=Position(0, 0),
+                position=position,
                 state="idle",
             )
         ],
@@ -80,14 +80,66 @@ def test_start_replaces_existing_motion_for_same_piece():
     assert tracker.motion_state_for(1) == "move"
 
 
-def test_reconcile_clears_motion_for_pieces_in_snapshot():
+def test_reconcile_clears_motion_when_authoritative_position_reaches_target():
     tracker = ClientMotionTracker()
     tracker.start(
         Motion(1, Position(0, 0), Position(0, 3), 1000, elapsed_ms=500),
         "move",
     )
 
-    tracker.reconcile(create_snapshot())
+    tracker.reconcile(create_snapshot(position=Position(0, 3)))
+
+    assert tracker.active_motions() == ()
+    assert tracker.motion_state_for(1) is None
+
+
+def test_reconcile_does_not_clear_unrelated_active_motion():
+    tracker = ClientMotionTracker()
+    tracker.start(
+        Motion(1, Position(0, 0), Position(0, 3), 1000, elapsed_ms=250),
+        "move",
+    )
+
+    snapshot = GameSnapshot(
+        board_width=8,
+        board_height=8,
+        pieces=[
+            PieceSnapshot(
+                piece_id=1,
+                kind=PieceKind.ROOK,
+                color=Color.WHITE,
+                position=Position(0, 0),
+                state="move",
+            ),
+            PieceSnapshot(
+                piece_id=2,
+                kind=PieceKind.ROOK,
+                color=Color.BLACK,
+                position=Position(1, 1),
+                state="idle",
+            ),
+        ],
+        selected_cell=None,
+        legal_moves=set(),
+        game_over=False,
+    )
+
+    tracker.reconcile(snapshot)
+
+    assert len(tracker.active_motions()) == 1
+    assert tracker.active_motions()[0].piece_id == 1
+    assert tracker.motion_state_for(1) == "move"
+
+
+def test_snapshot_before_motion_started_does_not_start_stale_motion():
+    tracker = ClientMotionTracker()
+
+    tracker.reconcile(create_snapshot(position=Position(0, 1)))
+
+    tracker.start(
+        Motion(1, Position(0, 0), Position(0, 1), 1000),
+        "move",
+    )
 
     assert tracker.active_motions() == ()
     assert tracker.motion_state_for(1) is None
