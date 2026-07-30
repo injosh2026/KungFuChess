@@ -10,6 +10,10 @@ from kungfu_chess.snapshot.game_snapshot import (
     PieceSnapshot,
     PromotionSnapshot,
 )
+from kungfu_chess.snapshot.visual_position_overlay import (
+    index_motions_by_piece_id,
+    visual_position_for_piece,
+)
 from kungfu_chess.view.move_history_entry import MoveHistoryEntry
 from kungfu_chess.view.runtime_role import RuntimeRole
 
@@ -65,26 +69,16 @@ class SnapshotBuilder:
             legal_moves:
                 Legal destination cells for the current selection.
         """
-        motion_by_piece_id = {}
-
-        if motions:
-            for motion in motions:
-                motion_by_piece_id[motion.piece_id] = motion
+        motion_by_piece_id = index_motions_by_piece_id(motions)
 
         pieces = []
 
         for piece in game_state.board.pieces_by_id.values():
-
-            visual_position = None
-            motion = motion_by_piece_id.get(piece.id)
-
-            if motion is not None:
-                progress = min(motion.elapsed_ms / motion.duration_ms, 1.0)
-                visual_position = self._visual_position_calculator.calculate(
-                    motion.start,
-                    motion.target,
-                    progress,
-                )
+            visual_position = visual_position_for_piece(
+                piece.id,
+                motion_by_piece_id,
+                self._visual_position_calculator,
+            )
 
             pieces.append(
                 PieceSnapshot(
