@@ -1,7 +1,9 @@
 from typing import Any
 
 from kungfu_chess.application.game_session import GameSession
+from kungfu_chess.events.motion_started_event import MotionStartedEvent
 from kungfu_chess.events.move_performed_event import MovePerformedEvent
+from kungfu_chess.network.motion_started_serializer import MotionStartedSerializer
 from kungfu_chess.network.snapshot_serializer import SnapshotSerializer
 from kungfu_chess.server.player_color import PlayerColor
 from kungfu_chess.server.match import Match
@@ -27,6 +29,10 @@ class ServerSession:
         self.game_session.message_bus.subscribe(
             MovePerformedEvent,
             self.send_snapshot,
+        )
+        self.game_session.message_bus.subscribe(
+            MotionStartedEvent,
+            self.send_motion_started,
         )
 
     def receive(self, message: Any) -> None:
@@ -60,6 +66,11 @@ class ServerSession:
         )
 
         message = SnapshotSerializer.serialize(snapshot)
+
+        self.send(message)
+
+    def send_motion_started(self, event: MotionStartedEvent) -> None:
+        message = MotionStartedSerializer.serialize(event)
 
         self.send(message)
 

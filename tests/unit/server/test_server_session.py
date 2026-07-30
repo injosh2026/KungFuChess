@@ -1,6 +1,8 @@
 from kungfu_chess.events.message_bus import MessageBus
 from kungfu_chess.events.messages.move_requested_message import MoveRequestedMessage
+from kungfu_chess.events.motion_started_event import MotionStartedEvent
 from kungfu_chess.events.move_performed_event import MovePerformedEvent
+from kungfu_chess.model.position import Position
 from kungfu_chess.server.player_color import PlayerColor
 from kungfu_chess.server.server_session import ServerSession
 
@@ -89,6 +91,71 @@ def test_server_session_stores_outgoing_messages():
 
     assert len(session.outbox) == 1
     assert "GAME_SNAPSHOT" in session.outbox[0]
+
+
+def test_server_session_sends_motion_started_on_event():
+    game_session = DummyGameSession()
+    match = DummyMatch()
+
+    session = ServerSession(
+        match=match,
+        game_session=game_session,
+        player_id="player1",
+        color=PlayerColor.WHITE,
+    )
+
+    event = MotionStartedEvent(
+        timestamp_ms=250,
+        piece_id=1,
+        start=Position(0, 0),
+        target=Position(0, 1),
+        duration_ms=1000,
+        state="move",
+    )
+
+    game_session.message_bus.publish(event)
+
+    assert len(session.outbox) == 1
+    assert "MOTION_STARTED" in session.outbox[0]
+    assert '"piece_id": 1' in session.outbox[0]
+    assert '"duration_ms": 1000' in session.outbox[0]
+    assert '"state": "move"' in session.outbox[0]
+    assert '"timestamp_ms": 250' in session.outbox[0]
+
+
+def test_all_server_sessions_receive_same_motion_started_message():
+    game_session = DummyGameSession()
+    match = DummyMatch()
+
+    white_session = ServerSession(
+        match=match,
+        game_session=game_session,
+        player_id="player1",
+        color=PlayerColor.WHITE,
+    )
+    black_session = ServerSession(
+        match=match,
+        game_session=game_session,
+        player_id="player2",
+        color=PlayerColor.BLACK,
+    )
+
+    event = MotionStartedEvent(
+        timestamp_ms=0,
+        piece_id=1,
+        start=Position(2, 3),
+        target=Position(4, 3),
+        duration_ms=1200,
+        state="move",
+    )
+
+    game_session.message_bus.publish(event)
+
+    assert len(white_session.outbox) == 1
+    assert len(black_session.outbox) == 1
+    assert white_session.outbox[0] == black_session.outbox[0]
+    assert "MOTION_STARTED" in white_session.outbox[0]
+
 
 def test_server_session_publishes_received_message():
 

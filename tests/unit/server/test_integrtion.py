@@ -61,10 +61,16 @@ def test_two_players_receive_same_move_event():
 
     game_session.game_engine.wait(2500)
 
-    white_message = json.loads(white_client_connection.receive())
+    white_motion = json.loads(white_client_connection.receive())
+    black_motion = json.loads(black_client_connection.receive())
 
+    assert white_motion == black_motion
+    assert white_motion["type"] == "MOTION_STARTED"
+
+    white_message = json.loads(white_client_connection.receive())
     black_message = json.loads(black_client_connection.receive())
     assert white_message == black_message
+    assert white_message["type"] == "GAME_SNAPSHOT"
 
     rook = next(
         piece

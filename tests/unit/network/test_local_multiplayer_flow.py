@@ -47,6 +47,9 @@ def test_local_client_server_snapshot_flow():
 
     game_session.game_engine.wait(2500)
 
+    motion_message = json.loads(client_connection.receive())
+    assert motion_message["type"] == "MOTION_STARTED"
+
     message = client_connection.receive()
 
     data = json.loads(message)

@@ -67,6 +67,9 @@ def test_client_move_creates_new_server_snapshot():
     asyncio.run(
         client.listen_once()
     )
+    asyncio.run(
+        client.listen_once()
+    )
 
     snapshot = snapshot_source.get_snapshot()
 
