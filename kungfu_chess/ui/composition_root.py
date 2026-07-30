@@ -17,8 +17,10 @@ from kungfu_chess.engine.game_factory import GameFactory
 from kungfu_chess.input.click_router import ClickRouter
 from kungfu_chess.input.mouse_input import MouseInput
 from kungfu_chess.io.board_parser import BoardParser
-from kungfu_chess.model.position import Position
 from kungfu_chess.snapshot.local_snapshot_source import LocalSnapshotSource
+from kungfu_chess.ui.canvas_sized_visual_position_calculator import (
+    CanvasSizedVisualPositionCalculator,
+)
 from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.animation_provider import AnimationProvider
 from kungfu_chess.ui.board_coordinates_renderer import BoardCoordinatesRenderer
@@ -33,27 +35,9 @@ from kungfu_chess.ui.promotion_picker_overlay import PromotionPickerOverlay
 from kungfu_chess.ui.sprite_library import SpriteLibrary
 from kungfu_chess.ui.state_progress_overlay import StateProgressOverlay
 from kungfu_chess.snapshot.snapshot_builder import SnapshotBuilder
-from kungfu_chess.view.visual_position import VisualPositionCalculator
 
 MODEL_CELL_SIZE = GameFactory.CELL_SIZE
 SPRITE_LIBRARY_BOOTSTRAP_CELL_SIZE = 1
-
-
-class CanvasSizedVisualPositionCalculator:
-    """Adapts visual interpolation to the current responsive cell size."""
-
-    def __init__(self, canvas_size_provider: Callable[[], tuple[int, int]]):
-        self._canvas_size_provider = canvas_size_provider
-
-    def calculate(
-        self,
-        start: Position,
-        target: Position,
-        progress: float,
-    ) -> tuple[float, float]:
-        layout = layout_for_canvas_size_provider(self._canvas_size_provider)
-        calculator = VisualPositionCalculator(layout.display_cell_size)
-        return calculator.calculate(start, target, progress)
 
 
 def to_model_coords(

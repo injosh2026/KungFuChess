@@ -27,10 +27,10 @@ from kungfu_chess.engine.game_factory import GameFactory
 from kungfu_chess.io.board_parser import BoardParser
 from kungfu_chess.ui.animation_clock import AnimationClock
 from kungfu_chess.ui.animation_provider import AnimationProvider
-from kungfu_chess.ui.composition_root import (
+from kungfu_chess.ui.canvas_sized_visual_position_calculator import (
     CanvasSizedVisualPositionCalculator,
-    SPRITE_LIBRARY_BOOTSTRAP_CELL_SIZE,
 )
+from kungfu_chess.ui.composition_root import SPRITE_LIBRARY_BOOTSTRAP_CELL_SIZE
 from kungfu_chess.ui.board_coordinates_renderer import BoardCoordinatesRenderer
 from kungfu_chess.ui.graphical_renderer import GraphicalRenderer
 from kungfu_chess.ui.move_history_panel import MoveHistoryPanel
